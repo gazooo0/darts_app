@@ -71,20 +71,22 @@
     let rotation = 0, velocity = 0, animId;
     let decelerating = false, clickPos = null;
 
+    // カラーパレット
     const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
     const inputsContainer = document.getElementById('inputs');
 
+    // 項目追加 (ラベルは数字1,2,3...)
     document.getElementById('add-btn').addEventListener('click', addEntry);
     function addEntry() {
       const index = inputsContainer.children.length;
-      const labelChar = String.fromCharCode(65 + index);
+      const labelNum = index + 1;
       const color = defaultColors[index % defaultColors.length];
       const div = document.createElement('div');
       div.className = 'entry';
       const lblText = document.createElement('label');
-      lblText.textContent = 'ラベル ' + labelChar;
+      lblText.textContent = 'ラベル ' + labelNum;
       const segInput = document.createElement('input');
-      segInput.type = 'text'; segInput.className = 'segment-input'; segInput.value = labelChar;
+      segInput.type = 'text'; segInput.className = 'segment-input'; segInput.value = labelNum;
       const colLabel = document.createElement('label'); colLabel.textContent = '色';
       const colInput = document.createElement('input');
       colInput.type = 'color'; colInput.className = 'color-input'; colInput.value = color;
@@ -92,6 +94,7 @@
       inputsContainer.appendChild(div);
     }
 
+    // 入力読み込み
     function parseInputs() {
       segments = [];
       colors = [];
@@ -106,6 +109,7 @@
       velocity = 0;
     }
 
+    // ボード描画
     function drawBoard() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.save();
@@ -114,28 +118,29 @@
       const count = segments.length;
       if (count <= 0) { ctx.restore(); return; }
       const angle = 2 * Math.PI / count;
-      for (let i=0;i<count;i++){
+      for (let i = 0; i < count; i++) {
         ctx.beginPath(); ctx.moveTo(0,0);
         ctx.fillStyle = colors[i];
         ctx.arc(0,0,radii.outer, i*angle, (i+1)*angle);
         ctx.closePath(); ctx.fill();
       }
-      ctx.fillStyle = '#000'; ctx.font='14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      for (let i=0;i<count;i++){
-        const a = (i+0.5)*angle;
-        const r = radii.outer*0.6;
-        ctx.fillText(segments[i], Math.cos(a)*r, Math.sin(a)*r);
+      ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let i = 0; i < count; i++) {
+        const a = (i + 0.5) * angle;
+        const r = radii.outer * 0.6;
+        ctx.fillText(segments[i], Math.cos(a) * r, Math.sin(a) * r);
       }
       ctx.restore();
       if (clickPos) {
-        ctx.beginPath(); ctx.strokeStyle='red'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
         ctx.moveTo(clickPos.x-10, clickPos.y); ctx.lineTo(clickPos.x+10, clickPos.y);
         ctx.moveTo(clickPos.x, clickPos.y-10); ctx.lineTo(clickPos.x, clickPos.y+10);
         ctx.stroke();
       }
     }
 
-    function animate(){
+    // アニメーション
+    function animate() {
       if (decelerating) {
         velocity *= 0.95;
         if (velocity < 0.02) {
@@ -160,6 +165,7 @@
       animId = requestAnimationFrame(animate);
     }
 
+    // クリックで減速開始
     canvas.addEventListener('click', e => {
       if (velocity === 0) return;
       const rect = canvas.getBoundingClientRect();
@@ -167,16 +173,19 @@
       decelerating = true;
     });
 
+    // 更新ボタン
     document.getElementById('update-btn').addEventListener('click', () => {
       if (velocity !== 0) return;
       parseInputs(); drawBoard(); document.getElementById('result').textContent = '';
     });
+
+    // Startボタン
     document.getElementById('start-btn').addEventListener('click', () => {
       parseInputs(); velocity = 0.3; decelerating = false;
       document.getElementById('start-btn').disabled = true; animate();
     });
 
-    // 初期2項目
+    // 初期2項目追加
     addEntry(); addEntry();
     drawBoard(); animate();
   </script>
