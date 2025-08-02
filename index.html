@@ -15,12 +15,15 @@
     #controls {
       margin-bottom: 12px;
       display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .control-group {
+      display: flex;
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
-    }
-    #controls label {
-      font-size: 14px;
     }
     canvas {
       border: 2px solid #333;
@@ -32,15 +35,50 @@
       margin-top: 12px;
       min-height: 24px;
     }
+    .label-input, .color-input {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+    }
+    .label-input input, .color-input input {
+      width: 60px;
+    }
   </style>
 </head>
 <body>
   <div id="controls">
-    <label>セグメント (10個, カンマ区切り): <input id="segments-input" type="text" value="A,B,C,D,E,F,G,H,I,J" size="30"></label>
-    <label>半径 (inner,outer): <input id="radii-input" type="text" value="100,180" size="15"></label>
-    <label>色 (10色, カンマ区切り): <input id="colors-input" type="text" value="#ff8888,#88ff88,#8888ff,#ff88ff,#88ffff,#ffff88,#ffcc88,#cc88ff,#88ccff,#ccbbee" size="40"></label>
-    <button id="update-btn">ターゲット更新</button>
-    <div>※ターゲットが回転しています。円内をクリックしてください。</div>
+    <div class="control-group">
+      <label>半径 (inner,outer): <input id="radii-input" type="text" value="100,180" size="10"></label>
+      <button id="update-btn">ターゲット更新</button>
+      <div>※円内をクリックして判定</div>
+    </div>
+    <div class="control-group" id="labels-group">
+      <!-- ラベル入力 10個 -->
+      <div class="label-input"><label>項目1<input id="segment-1" type="text" value="A"></label></div>
+      <div class="label-input"><label>項目2<input id="segment-2" type="text" value="B"></label></div>
+      <div class="label-input"><label>項目3<input id="segment-3" type="text" value="C"></label></div>
+      <div class="label-input"><label>項目4<input id="segment-4" type="text" value="D"></label></div>
+      <div class="label-input"><label>項目5<input id="segment-5" type="text" value="E"></label></div>
+      <div class="label-input"><label>項目6<input id="segment-6" type="text" value="F"></label></div>
+      <div class="label-input"><label>項目7<input id="segment-7" type="text" value="G"></label></div>
+      <div class="label-input"><label>項目8<input id="segment-8" type="text" value="H"></label></div>
+      <div class="label-input"><label>項目9<input id="segment-9" type="text" value="I"></label></div>
+      <div class="label-input"><label>項目10<input id="segment-10" type="text" value="J"></label></div>
+    </div>
+    <div class="control-group" id="colors-group">
+      <!-- 色入力 10個 -->
+      <div class="color-input"><label>色1<input id="color-1" type="color" value="#ff8888"></label></div>
+      <div class="color-input"><label>色2<input id="color-2" type="color" value="#88ff88"></label></div>
+      <div class="color-input"><label>色3<input id="color-3" type="color" value="#8888ff"></label></div>
+      <div class="color-input"><label>色4<input id="color-4" type="color" value="#ff88ff"></label></div>
+      <div class="color-input"><label>色5<input id="color-5" type="color" value="#88ffff"></label></div>
+      <div class="color-input"><label>色6<input id="color-6" type="color" value="#ffff88"></label></div>
+      <div class="color-input"><label>色7<input id="color-7" type="color" value="#ffcc88"></label></div>
+      <div class="color-input"><label>色8<input id="color-8" type="color" value="#cc88ff"></label></div>
+      <div class="color-input"><label>色9<input id="color-9" type="color" value="#88ccff"></label></div>
+      <div class="color-input"><label>色10<input id="color-10" type="color" value="#ccbbee"></label></div>
+    </div>
   </div>
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
@@ -49,7 +87,6 @@
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
-
     let segments = [];
     let radii = {};
     let colors = [];
@@ -57,101 +94,70 @@
     let animId;
 
     function parseInputs() {
+      // 半径
+      const [inner, outer] = document.getElementById('radii-input').value.split(',').map(n => parseInt(n));
+      radii = { inner, outer };
       // セグメント
-      const segInput = document.getElementById('segments-input').value.trim();
-      segments = segInput ? segInput.split(',').map(s => s.trim()) : [];
-      // 半径(inner, outer)
-      const radParts = document.getElementById('radii-input').value.trim().split(',').map(n => parseInt(n, 10));
-      if (radParts.length === 2 && radParts.every(n => !isNaN(n))) {
-        radii = { inner: radParts[0], outer: radParts[1] };
+      segments = [];
+      for (let i = 1; i <= 10; i++) {
+        const v = document.getElementById(`segment-${i}`).value.trim();
+        segments.push(v || '-');
       }
       // 色
-      const colInput = document.getElementById('colors-input').value.trim();
-      const colParts = colInput ? colInput.split(',').map(c => c.trim()) : [];
-      colors = colParts;
+      colors = [];
+      for (let i = 1; i <= 10; i++) {
+        colors.push(document.getElementById(`color-${i}`).value);
+      }
     }
 
     function drawBoard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-      ctx.translate(center.x, center.y);
-      ctx.rotate(rotation);
-
-      const segCount = segments.length;
-      if (segCount === 0) return;
-      const anglePer = 2 * Math.PI / segCount;
-
-      // セグメント描画
-      for (let i = 0; i < segCount; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.fillStyle = colors[i] || (i % 2 ? '#e0e0e0' : '#c8c8c8');
-        ctx.arc(0, 0, radii.outer, i * anglePer, (i + 1) * anglePer);
-        ctx.closePath();
-        ctx.fill();
+      ctx.save(); ctx.translate(center.x, center.y); ctx.rotate(rotation);
+      const count = segments.length; const angle = 2 * Math.PI / count;
+      // セグメント
+      for (let i = 0; i < count; i++) {
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.fillStyle = colors[i];
+        ctx.arc(0, 0, radii.outer, i * angle, (i + 1) * angle);
+        ctx.closePath(); ctx.fill();
       }
-      // 内側リング
-      ctx.beginPath();
-      ctx.fillStyle = '#ffffff';
-      ctx.arc(0, 0, radii.inner, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // ラベル描画
-      ctx.fillStyle = '#000';
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      for (let i = 0; i < segCount; i++) {
-        const midAngle = (i + 0.5) * anglePer;
-        const labelR = (radii.inner + radii.outer) / 2;
-        const lx = Math.cos(midAngle) * labelR;
-        const ly = Math.sin(midAngle) * labelR;
-        ctx.fillText(segments[i], lx, ly);
+      // 内側
+      ctx.beginPath(); ctx.fillStyle = '#fff'; ctx.arc(0, 0, radii.inner, 0, 2 * Math.PI); ctx.fill();
+      // ラベル
+      ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let i = 0; i < count; i++) {
+        const a = (i + 0.5) * angle;
+        const r = (radii.inner + radii.outer) / 2;
+        ctx.fillText(segments[i], Math.cos(a) * r, Math.sin(a) * r);
       }
-
       ctx.restore();
     }
 
-    function animate() {
-      rotation += 0.01;
-      drawBoard();
-      animId = requestAnimationFrame(animate);
-    }
+    function animate() { rotation += 0.01; drawBoard(); animId = requestAnimationFrame(animate); }
 
     canvas.addEventListener('click', e => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left - center.x;
       const y = e.clientY - rect.top - center.y;
-      const dist = Math.hypot(x, y);
-
-      let hitType;
-      if (dist <= radii.inner) hitType = '当たり';
-      else if (dist <= radii.outer) hitType = '端っこヒット';
-      else hitType = 'はずれ';
-
+      const d = Math.hypot(x, y);
+      let result;
+      if (d <= radii.inner) result = '当たり';
+      else if (d <= radii.outer) result = '端っこヒット';
+      else result = 'はずれ';
       let label = '-';
-      if (dist <= radii.outer && segments.length > 0) {
-        const clickAngle = Math.atan2(y, x) - rotation;
-        const twoPi = 2 * Math.PI;
-        const norm = (clickAngle % twoPi + twoPi) % twoPi;
-        const idx = Math.floor(norm / (twoPi / segments.length));
-        label = segments[idx];
+      if (d <= radii.outer) {
+        const a = (Math.atan2(y, x) - rotation + 2 * Math.PI) % (2 * Math.PI);
+        label = segments[Math.floor(a / (2 * Math.PI / segments.length))];
       }
-      document.getElementById('result').textContent = label + ' → ' + hitType;
+      document.getElementById('result').textContent = `${label} → ${result}`;
     });
 
     document.getElementById('update-btn').addEventListener('click', () => {
-      cancelAnimationFrame(animId);
-      rotation = 0;
-      parseInputs();
-      drawBoard();
-      animate();
+      cancelAnimationFrame(animId); rotation = 0; parseInputs(); drawBoard(); animate();
     });
 
-    // 初期設定
-    parseInputs();
-    drawBoard();
-    animate();
+    // 初期化
+    parseInputs(); drawBoard(); animate();
   </script>
 </body>
 </html>
