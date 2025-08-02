@@ -7,7 +7,17 @@
   <style>
     body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; margin: 20px; }
     canvas { border: 2px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
-    #result { font-size: 20px; margin-top: 12px; min-height: 24px; }
+    /* 結果表示スタイル */
+    #result {
+      font-size: 2em;                /* 文字を大きく */
+      font-weight: bold;             /* 太字 */
+      background-color: yellow;      /* 背景色を黄色 */
+      color: red;                    /* 文字色を赤 */
+      padding: 8px 16px;
+      margin-top: 12px;
+      border-radius: 4px;
+      min-height: auto;
+    }
     #start-control { margin-top: 12px; }
     #start-btn { font-size: 1.2em; padding: 10px 20px; }
     #controls { margin-top: 12px; display: flex; gap: 8px; justify-content: center; align-items: center; }
@@ -30,17 +40,17 @@
   <div id="result"></div>
 
   <div id="start-control">
-    <button id="start-btn">Start</button>
+    <button id="start-btn">回転スタート！</button>
   </div>
   <div id="controls">
-    <button id="add-btn">行追加</button>
-    <button id="update-btn">更新</button>
-    <span>※円をクリックで徐々に停止</span>
+    <button id="add-btn">項目を追加</button>
+    <button id="update-btn">ラベル名を更新</button>
+    <span>※回転する円をクリックすると徐々に止まり結果が表示されます</span>
   </div>
 
   <table id="inputs">
     <thead>
-      <tr><th colspan="2">Label & Color</th><th colspan="2">Label & Color</th><th colspan="2">Label & Color</th></tr>
+      <tr><th colspan="2">項目名・色</th><th colspan="2">項目名・色</th><th colspan="2">項目名・色</th></tr>
     </thead>
     <tbody></tbody>
   </table>
