@@ -8,20 +8,9 @@
     body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; margin: 20px; }
     canvas { border: 2px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
     #result { font-size: 20px; margin-top: 12px; min-height: 24px; }
-    #start-control {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 12px;
-    }
+    #start-control { margin-top: 12px; }
     #start-btn { font-size: 1.2em; padding: 10px 20px; }
-    #controls {
-      margin-top: 12px;
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      align-items: center;
-    }
+    #controls { margin-top: 12px; display: flex; gap: 8px; justify-content: center; align-items: center; }
     table#inputs { margin-top: 12px; border-collapse: collapse; }
     table#inputs th, table#inputs td { border: 1px solid #999; padding: 4px 8px; text-align: center; }
     table#inputs th { background: #eee; }
@@ -31,9 +20,9 @@
   </style>
 </head>
 <body>
+  <audio id="drumroll" src="drumroll.mp3" loop></audio>
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
-
   <div id="start-control">
     <button id="start-btn">Start</button>
   </div>
@@ -42,35 +31,52 @@
     <button id="update-btn">更新</button>
     <span>※円をクリックで徐々に停止</span>
   </div>
-
   <table id="inputs">
     <thead>
-      <tr>
-        <th>項目名</th><th>色</th>
-        <th>項目名</th><th>色</th>
-        <th>項目名</th><th>色</th>
-      </tr>
+      <tr><th>Label</th><th>Color</th><th>Label</th><th>Color</th><th>Label</th><th>Color</th></tr>
     </thead>
     <tbody></tbody>
   </table>
-
   <script>
+    // キャッシュ DOM 要素
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width/2, y: canvas.height/2 };
     const radii = { inner:100, outer:180 };
-    let segments = [];
-    let colors = [];
-    let rotation=0, velocity=0, animId;
-    let decelerating=false, clickPos=null;
-
-    const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
+    const drum = document.getElementById('drumroll');
     const tbody = document.querySelector('#inputs tbody');
 
+    // 状態
+    let segments = [], colors = [];
+    let rotation = 0, velocity = 0, decelerating = false;
+    let clickPos = null;
+    let animId;
+
+    const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
+
     document.getElementById('add-btn').addEventListener('click', addEntry);
+    document.getElementById('update-btn').addEventListener('click', () => {
+      if (velocity !== 0) return;
+      parseInputs(); rebuildTable(); drawBoard();
+      document.getElementById('result').textContent = '';
+    });
+    document.getElementById('start-btn').addEventListener('click', () => {
+      parseInputs(); velocity = 0.3; decelerating = false;
+      drum.currentTime = 0; drum.play(); // ドラムロール
+      document.getElementById('start-btn').disabled = true;
+      animate();
+    });
+    canvas.addEventListener('click', e => {
+      if (velocity === 0) return;
+      drum.pause(); drum.currentTime = 0; // 音停止
+      const rect = canvas.getBoundingClientRect();
+      clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      decelerating = true;
+    });
+
     function addEntry() {
       const idx = segments.length;
-      segments.push((idx+1).toString());
+      segments.push((idx + 1).toString());
       colors.push(defaultColors[idx % defaultColors.length]);
       rebuildTable();
     }
@@ -79,24 +85,17 @@
       tbody.innerHTML = '';
       const n = segments.length;
       const cols = 3;
-      const rows = Math.ceil(n/cols);
-      for (let r = 0; r < rows; r++) {
+      for (let i = 0; i < n; i += cols) {
         const tr = document.createElement('tr');
-        for (let c = 0; c < cols; c++) {
-          const idx = r*cols + c;
+        for (let j = 0; j < cols; j++) {
+          const idx = i + j;
           if (idx < n) {
-            // Label cell
-            const td1 = document.createElement('td');
-            const inText = document.createElement('input');
-            inText.type = 'text'; inText.className = 'segment-input'; inText.value = segments[idx];
-            td1.appendChild(inText);
-            tr.appendChild(td1);
-            // Color cell
-            const td2 = document.createElement('td');
-            const inColor = document.createElement('input');
-            inColor.type = 'color'; inColor.className = 'color-input'; inColor.value = colors[idx];
-            td2.appendChild(inColor);
-            tr.appendChild(td2);
+            const tdLabel = document.createElement('td');
+            tdLabel.innerHTML = `<input class="segment-input" type="text" value="${segments[idx]}">`;
+            tr.appendChild(tdLabel);
+            const tdColor = document.createElement('td');
+            tdColor.innerHTML = `<input class="color-input" type="color" value="${colors[idx]}">`;
+            tr.appendChild(tdColor);
           } else {
             tr.appendChild(document.createElement('td'));
             tr.appendChild(document.createElement('td'));
@@ -107,54 +106,70 @@
     }
 
     function parseInputs() {
-      segments = Array.from(document.querySelectorAll('.segment-input')).map(i => i.value.trim() || '-');
-      colors = Array.from(document.querySelectorAll('.color-input')).map(i => i.value);
+      const segEls = document.querySelectorAll('.segment-input');
+      const colEls = document.querySelectorAll('.color-input');
+      segments = Array.from(segEls).map(el => el.value.trim() || '-');
+      colors = Array.from(colEls).map(el => el.value);
       clickPos = null; decelerating = false; velocity = 0;
     }
 
     function drawBoard() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.save(); ctx.translate(center.x, center.y); ctx.rotate(rotation);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(center.x, center.y);
+      ctx.rotate(rotation);
       const count = segments.length;
-      if (count > 0) {
-        const angle = 2 * Math.PI / count;
-        for (let i = 0; i < count; i++) {
-          ctx.beginPath(); ctx.moveTo(0,0);
+      if (count) {
+        const angle = (2 * Math.PI) / count;
+        segments.forEach((seg, i) => {
+          ctx.beginPath(); ctx.moveTo(0, 0);
           ctx.fillStyle = colors[i];
-          ctx.arc(0,0,radii.outer, i*angle, (i+1)*angle);
+          ctx.arc(0, 0, radii.outer, i * angle, (i + 1) * angle);
           ctx.closePath(); ctx.fill();
-        }
+        });
+      }
+      ctx.restore();
+      // ラベル描画
+      ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      segments.forEach((seg, i) => {
+        const angle = (2 * Math.PI) / segments.length;
+        const a = (i + 0.5) * angle + rotation;
+        const r = radii.outer * 0.6;
+        ctx.save();
+        ctx.translate(
+          center.x + Math.cos(a) * r,
+          center.y + Math.sin(a) * r
+        );
+        ctx.rotate(a);
+        ctx.fillText(seg, 0, 0);
         ctx.restore();
-        ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        for (let i = 0; i < count; i++) {
-          const a = (i + 0.5) * 2 * Math.PI / count + rotation;
-          const r = radii.outer * 0.6;
-          const x = center.x + Math.cos(a) * r;
-          const y = center.y + Math.sin(a) * r;
-          ctx.save(); ctx.translate(x, y); ctx.rotate(a);
-          ctx.fillText(segments[i], 0, 0); ctx.restore();
-        }
-      } else ctx.restore();
+      });
+      // クリックマーカー
       if (clickPos) {
         ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
-        ctx.moveTo(clickPos.x-10, clickPos.y); ctx.lineTo(clickPos.x+10, clickPos.y);
-        ctx.moveTo(clickPos.x, clickPos.y-10); ctx.lineTo(clickPos.x, clickPos.y+10);
+        ctx.moveTo(clickPos.x - 10, clickPos.y);
+        ctx.lineTo(clickPos.x + 10, clickPos.y);
+        ctx.moveTo(clickPos.x, clickPos.y - 10);
+        ctx.lineTo(clickPos.x, clickPos.y + 10);
         ctx.stroke();
       }
     }
 
     function animate() {
       if (decelerating) {
-        velocity *= 0.95;
+        velocity *= 0.95; // 減速係数
         if (velocity < 0.02) {
-          decelerating = false; velocity = 0;
+          decelerating = false;
+          velocity = 0;
           if (clickPos) {
-            const mx = clickPos.x - center.x, my = clickPos.y - center.y;
+            const mx = clickPos.x - center.x;
+            const my = clickPos.y - center.y;
             let lbl = '-';
-            if (Math.hypot(mx,my) <= radii.outer) {
+            if (Math.hypot(mx, my) <= radii.outer) {
               const count = segments.length;
-              const angle = 2 * Math.PI / count;
-              const a = ((Math.atan2(my,mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+              const angle = (2 * Math.PI) / count;
+              const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
               lbl = segments[Math.floor(a / angle)];
             }
             document.getElementById('result').textContent = lbl;
@@ -167,25 +182,8 @@
       animId = requestAnimationFrame(animate);
     }
 
-    canvas.addEventListener('click', e => {
-      if (velocity === 0) return;
-      const rect = canvas.getBoundingClientRect();
-      clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      decelerating = true;
-    });
-
-    document.getElementById('update-btn').addEventListener('click', () => {
-      if (velocity !== 0) return;
-      parseInputs(); rebuildTable(); drawBoard(); document.getElementById('result').textContent = '';
-    });
-    document.getElementById('start-btn').addEventListener('click', () => {
-      parseInputs(); velocity = 0.3; decelerating = false;
-      document.getElementById('start-btn').disabled = true;
-      animate();
-    });
-
-    // 初期3行追加
-    addEntry(); addEntry(); addEntry();
+    // 初期項目を3つ追加
+    for (let i = 0; i < 3; i++) addEntry();
     rebuildTable(); drawBoard(); animate();
   </script>
 </body>
