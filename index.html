@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ダーツ当たり判定アプリ</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    canvas {
+      border: 2px solid #333;
+      border-radius: 8px;
+    }
+    #result {
+      font-size: 24px;
+      margin-top: 16px;
+      height: 32px;
+    }
+    #info {
+      margin-bottom: 8px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">円をクリックして、当たり判定を試してください。</div>
+  <canvas id="dartboard" width="400" height="400"></canvas>
+  <div id="result"></div>
+
+  <script>
+    const canvas = document.getElementById('dartboard');
+    const ctx = canvas.getContext('2d');
+    const center = { x: canvas.width / 2, y: canvas.height / 2 };
+    // 各リングの半径（ピクセル）
+    const radii = {
+      bull: 30,      // 真ん中の的
+      inner: 100,    // 中央リング
+      outer: 180     // 外側リング
+    };
+
+    // ダーツボードを描画
+    function drawBoard() {
+      // 外側リング
+      ctx.fillStyle = '#c8c8c8';
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, radii.outer, 0, 2 * Math.PI);
+      ctx.fill();
+      // 中央リング
+      ctx.fillStyle = '#e0e0e0';
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, radii.inner, 0, 2 * Math.PI);
+      ctx.fill();
+      // 真ん中（ブルズアイ）
+      ctx.fillStyle = '#ff4d4d';
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, radii.bull, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    drawBoard();
+
+    // クリックイベントで当たり判定
+    canvas.addEventListener('click', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const distance = Math.hypot(x - center.x, y - center.y);
+      const output = document.getElementById('result');
+
+      if (distance <= radii.bull) {
+        output.textContent = '大当たり！Bullseye!';
+      } else if (distance <= radii.inner) {
+        output.textContent = '当たり！';
+      } else if (distance <= radii.outer) {
+        output.textContent = '端っこヒット！';
+      } else {
+        output.textContent = 'はずれ！';
+      }
+    });
+  </script>
+</body>
+</html>
