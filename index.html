@@ -29,6 +29,7 @@
       border: 2px solid #333;
       border-radius: 8px;
       background: #fff;
+      cursor: pointer;
     }
     #result {
       font-size: 20px;
@@ -44,40 +45,31 @@
     .label-input input, .color-input input {
       width: 60px;
     }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
   <div id="controls">
     <div class="control-group">
       <label>半径 (inner,outer): <input id="radii-input" type="text" value="100,180" size="10"></label>
-      <button id="update-btn">ターゲット更新</button>
-      <div>※円内をクリックして判定</div>
+      <button id="update-btn">更新</button>
+      <button id="start-btn">Start</button>
+      <div>※Startを押して高速回転、円をクリックすると停止</div>
     </div>
     <div class="control-group" id="labels-group">
       <!-- ラベル入力 10個 -->
-      <div class="label-input"><label>項目1<input id="segment-1" type="text" value="A"></label></div>
-      <div class="label-input"><label>項目2<input id="segment-2" type="text" value="B"></label></div>
-      <div class="label-input"><label>項目3<input id="segment-3" type="text" value="C"></label></div>
-      <div class="label-input"><label>項目4<input id="segment-4" type="text" value="D"></label></div>
-      <div class="label-input"><label>項目5<input id="segment-5" type="text" value="E"></label></div>
-      <div class="label-input"><label>項目6<input id="segment-6" type="text" value="F"></label></div>
-      <div class="label-input"><label>項目7<input id="segment-7" type="text" value="G"></label></div>
-      <div class="label-input"><label>項目8<input id="segment-8" type="text" value="H"></label></div>
-      <div class="label-input"><label>項目9<input id="segment-9" type="text" value="I"></label></div>
-      <div class="label-input"><label>項目10<input id="segment-10" type="text" value="J"></label></div>
+      ${Array.from({ length: 10 }).map((_, i) =>
+        `<div class="label-input"><label>項目${i+1}<input id="segment-${i+1}" type="text" value="${String.fromCharCode(65+i)}"></label></div>`
+      ).join('')}
     </div>
     <div class="control-group" id="colors-group">
       <!-- 色入力 10個 -->
-      <div class="color-input"><label>色1<input id="color-1" type="color" value="#ff8888"></label></div>
-      <div class="color-input"><label>色2<input id="color-2" type="color" value="#88ff88"></label></div>
-      <div class="color-input"><label>色3<input id="color-3" type="color" value="#8888ff"></label></div>
-      <div class="color-input"><label>色4<input id="color-4" type="color" value="#ff88ff"></label></div>
-      <div class="color-input"><label>色5<input id="color-5" type="color" value="#88ffff"></label></div>
-      <div class="color-input"><label>色6<input id="color-6" type="color" value="#ffff88"></label></div>
-      <div class="color-input"><label>色7<input id="color-7" type="color" value="#ffcc88"></label></div>
-      <div class="color-input"><label>色8<input id="color-8" type="color" value="#cc88ff"></label></div>
-      <div class="color-input"><label>色9<input id="color-9" type="color" value="#88ccff"></label></div>
-      <div class="color-input"><label>色10<input id="color-10" type="color" value="#ccbbee"></label></div>
+      ${['#ff8888','#88ff88','#8888ff','#ff88ff','#88ffff','#ffff88','#ffcc88','#cc88ff','#88ccff','#ccbbee'].map((c, i) =>
+        `<div class="color-input"><label>色${i+1}<input id="color-${i+1}" type="color" value="${c}"></label></div>`
+      ).join('')}
     </div>
   </div>
   <canvas id="dartboard" width="400" height="400"></canvas>
@@ -92,18 +84,15 @@
     let colors = [];
     let rotation = 0;
     let animId;
+    let spinning = false;
 
     function parseInputs() {
-      // 半径
       const [inner, outer] = document.getElementById('radii-input').value.split(',').map(n => parseInt(n));
       radii = { inner, outer };
-      // セグメント
       segments = [];
       for (let i = 1; i <= 10; i++) {
-        const v = document.getElementById(`segment-${i}`).value.trim();
-        segments.push(v || '-');
+        segments.push(document.getElementById(`segment-${i}`).value.trim() || '-');
       }
-      // 色
       colors = [];
       for (let i = 1; i <= 10; i++) {
         colors.push(document.getElementById(`color-${i}`).value);
@@ -119,7 +108,6 @@
       const count = segments.length;
       const angle = 2 * Math.PI / count;
 
-      // セグメントを中心まで塗りつぶし
       for (let i = 0; i < count; i++) {
         ctx.beginPath();
         ctx.moveTo(0, 0);
@@ -129,7 +117,6 @@
         ctx.fill();
       }
 
-      // ラベル描画
       ctx.fillStyle = '#000';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
@@ -144,22 +131,24 @@
     }
 
     function animate() {
-      rotation += 0.01;
+      rotation += spinning ? 0.3 : 0; // スピン時は速め
       drawBoard();
       animId = requestAnimationFrame(animate);
     }
 
-    canvas.addEventListener('click', e => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left - center.x;
-      const y = e.clientY - rect.top - center.y;
+    canvas.addEventListener('click', () => {
+      if (!spinning) return;
+      spinning = false;
+      document.getElementById('start-btn').disabled = false;
+      cancelAnimationFrame(animId);
+      // 結果判定
+      const x = event.clientX - canvas.getBoundingClientRect().left - center.x;
+      const y = event.clientY - canvas.getBoundingClientRect().top - center.y;
       const d = Math.hypot(x, y);
-
       let result;
       if (d <= radii.inner) result = '当たり';
       else if (d <= radii.outer) result = '端っこヒット';
       else result = 'はずれ';
-
       let label = '-';
       if (d <= radii.outer) {
         const a = (Math.atan2(y, x) - rotation + 2 * Math.PI) % (2 * Math.PI);
@@ -169,17 +158,22 @@
     });
 
     document.getElementById('update-btn').addEventListener('click', () => {
-      cancelAnimationFrame(animId);
-      rotation = 0;
+      if (spinning) return;
       parseInputs();
       drawBoard();
+      document.getElementById('result').textContent = '';
+    });
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+      parseInputs();
+      spinning = true;
+      document.getElementById('start-btn').disabled = true;
       animate();
     });
 
-    // 初期化
+    // 初期表示
     parseInputs();
     drawBoard();
-    animate();
   </script>
 </body>
 </html>
