@@ -9,16 +9,16 @@
     canvas { border: 2px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
     /* 結果表示スタイル */
     #result {
-      font-size: 2em;                /* 文字を大きく */
-      font-weight: bold;             /* 太字 */
-      background-color: yellow;      /* 背景色を黄色 */
-      color: red;                    /* 文字色を赤 */
+      font-size: 2em;
+      font-weight: bold;
+      background-color: yellow;
+      color: red;
       padding: 8px 16px;
       margin-top: 12px;
       border-radius: 4px;
-      min-height: 48px;              /* 固定高さでレイアウトシフト防止 */
+      min-height: 48px;
+      width: 400px;
       box-sizing: border-box;
-      width: calc(100% - 40px);      /* 横幅調整(左右のmargin含め) */
       text-align: center;
     }
     #start-control { margin-top: 12px; }
@@ -81,6 +81,9 @@
     let decelerating = false;
     let clickPos = null;
     let animId;
+    // 入力要素キャッシュ
+    let segInputs = [];
+    let colInputs = [];
 
     const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
     const DECELERATION = 0.95;
@@ -100,11 +103,12 @@
       addBtn.addEventListener('click', addEntry);
       updateBtn.addEventListener('click', () => {
         if (velocity !== 0) return;
-        parseInputs(); rebuildTable(); drawBoard();
+        drawBoard();
         document.getElementById('result').textContent = '';
       });
       startBtn.addEventListener('click', () => {
-        parseInputs(); velocity = 0.3; decelerating = false;
+        // 最新配列で開始
+        velocity = 0.3; decelerating = false;
         drum.currentTime = 0; drum.play().catch(() => {});
         startBtn.disabled = true;
         cancelAnimationFrame(animId);
@@ -128,49 +132,64 @@
     }
 
     function rebuildTable() {
-      tbody.innerHTML = '';
+      // ドキュメントフラグメント利用
+      const frag = document.createDocumentFragment();
+      segInputs = [];
+      colInputs = [];
       const cols = 3;
-      for (let i = 0; i < segments.length; i += cols) {
-        const tr = document.createElement('tr');
-        for (let j = 0; j < cols; j++) {
-          const idx = i + j;
-          if (idx < segments.length) {
-            tr.innerHTML += `
-              <td>
-                <button class="delete-btn" data-idx="${idx}">×</button>
-                <input class="segment-input" type="text" value="${segments[idx]}">
-              </td>
-              <td>
-                <input class="color-input" type="color" value="${colors[idx]}">
-              </td>
-            `;
-          } else {
-            tr.innerHTML += '<td></td><td></td>';
-          }
+      segments.forEach((seg, index) => {
+        const rowIndex = Math.floor(index / cols);
+        let tr = frag.children[rowIndex];
+        if (!tr) {
+          tr = document.createElement('tr');
+          frag.appendChild(tr);
         }
-        tbody.appendChild(tr);
-      }
+        // ラベル入力セル
+        const tdLabel = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn'; delBtn.textContent = '×'; delBtn.dataset.idx = index;
+        tdLabel.appendChild(delBtn);
+        const inp = document.createElement('input');
+        inp.className = 'segment-input'; inp.type = 'text'; inp.value = seg;
+        tdLabel.appendChild(inp);
+        segInputs.push(inp);
+        tr.appendChild(tdLabel);
+        // カラー入力セル
+        const tdColor = document.createElement('td');
+        const cinp = document.createElement('input');
+        cinp.className = 'color-input'; cinp.type = 'color'; cinp.value = colors[index];
+        tdColor.appendChild(cinp);
+        colInputs.push(cinp);
+        tr.appendChild(tdColor);
+      });
+      tbody.replaceChildren(frag);
       attachDeleteEvents();
+      attachInputEvents();
+    }
+
+    function attachInputEvents() {
+      segInputs.forEach((inp, i) => {
+        inp.addEventListener('input', e => {
+          segments[i] = e.target.value.trim() || '-';
+        });
+      });
+      colInputs.forEach((inp, i) => {
+        inp.addEventListener('input', e => {
+          colors[i] = e.target.value;
+        });
+      });
     }
 
     function attachDeleteEvents() {
-      document.querySelectorAll('.delete-btn').forEach(btn => {
+      Array.from(tbody.querySelectorAll('.delete-btn')).forEach(btn => {
         btn.addEventListener('click', e => {
-          const idx = parseInt(e.currentTarget.getAttribute('data-idx'));
+          const idx = parseInt(btn.dataset.idx, 10);
           segments.splice(idx, 1);
           colors.splice(idx, 1);
           rebuildTable();
           drawBoard();
         });
       });
-    }
-
-    function parseInputs() {
-      segments = Array.from(document.querySelectorAll('.segment-input')).map(el => el.value.trim() || '-');
-      colors = Array.from(document.querySelectorAll('.color-input')).map(el => el.value);
-      clickPos = null;
-      decelerating = false;
-      velocity = 0;
     }
 
     function drawBoard() {
@@ -199,3 +218,44 @@
         ctx.fillText(seg, 0, 0);
         ctx.restore();
       });
+      if (clickPos) {
+        ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
+        ctx.moveTo(clickPos.x - 10, clickPos.y);
+        ctx.lineTo(clickPos.x + 10, clickPos.y);
+        ctx.moveTo(clickPos.x, clickPos.y - 10);
+        ctx.lineTo(clickPos.x, clickPos.y + 10);
+        ctx.stroke();
+      }
+    }
+
+    function animate() {
+      cancelAnimationFrame(animId);
+      if (decelerating) {
+        velocity *= DECELERATION;
+        if (velocity < STOP_THRESHOLD) {
+          decelerating = false; velocity = 0;
+          if (clickPos) {
+            const mx = clickPos.x - center.x;
+            const my = clickPos.y - center.y;
+            let lbl = '-';
+            if (Math.hypot(mx, my) <= radii.outer) {
+              const count = segments.length;
+              const angleStep = 2 * Math.PI / count;
+              const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+              lbl = segments[Math.floor(a / angleStep)];
+            }
+            document.getElementById('result').textContent = lbl;
+            startBtn.disabled = false;
+          }
+        }
+      }
+      rotation += velocity;
+      drawBoard();
+      animId = requestAnimationFrame(animate);
+    }
+
+    // 初期化実行
+    init();
+  </script>
+</body>
+</html>
