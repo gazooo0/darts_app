@@ -53,7 +53,6 @@
 <body>
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
-
   <div id="controls">
     <button id="add-btn">項目追加</button>
     <button id="update-btn">更新</button>
@@ -61,7 +60,6 @@
     <span>※Startを押して回転開始、円をクリックすると徐々に停止</span>
   </div>
   <div id="inputs"></div>
-
   <script>
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
@@ -96,10 +94,8 @@
       segments = [];
       colors = [];
       document.querySelectorAll('.entry').forEach(entry => {
-        const s = entry.querySelector('.segment-input').value.trim();
-        const c = entry.querySelector('.color-input').value;
-        segments.push(s || '-');
-        colors.push(c);
+        segments.push(entry.querySelector('.segment-input').value.trim() || '-');
+        colors.push(entry.querySelector('.color-input').value);
       });
       clickPos = null;
       decelerating = false;
@@ -114,15 +110,15 @@
       const count = segments.length;
       if (count <= 0) { ctx.restore(); return; }
       const angle = 2 * Math.PI / count;
+      // セグメント描画
       for (let i = 0; i < count; i++) {
-        ctx.beginPath(); ctx.moveTo(0,0);
+        ctx.beginPath();ctx.moveTo(0,0);
         ctx.fillStyle = colors[i];
         ctx.arc(0,0,radii.outer, i*angle, (i+1)*angle);
-        ctx.closePath(); ctx.fill();
+        ctx.closePath();ctx.fill();
       }
       ctx.restore();
-
-      // ラベルを90°回転で表示 (常に同じ向き)
+      // ラベル描画（ラベル自体を90°回転させず、セグメント中心角に合わせて回転）
       ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = 0; i < count; i++) {
@@ -132,11 +128,11 @@
         const y = center.y + Math.sin(a) * r;
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(Math.PI / 2);
+        ctx.rotate(a);
         ctx.fillText(segments[i], 0, 0);
         ctx.restore();
       }
-
+      // マーカー
       if (clickPos) {
         ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
         ctx.moveTo(clickPos.x-10, clickPos.y); ctx.lineTo(clickPos.x+10, clickPos.y);
@@ -187,7 +183,8 @@
     });
 
     // 初期2項目追加
-    addEntry(); addEntry(); drawBoard(); animate();
+    addEntry(); addEntry();
+    drawBoard(); animate();
   </script>
 </body>
 </html>
