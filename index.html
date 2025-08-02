@@ -21,7 +21,10 @@
   </style>
 </head>
 <body>
+  <!-- 音声素材 -->
   <audio id="drumroll" src="drumroll.mp3" loop></audio>
+  <audio id="stopSound" src="stop.mp3"></audio>
+
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
 
@@ -41,42 +44,69 @@
     <tbody></tbody>
   </table>
 
-  <div id="credits">使用素材：効果音工房様</div>
+  <div id="credits">使用素材：効果音工房様・効果音ラボ様</div>
 
   <script>
+    // DOM キャッシュ
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width/2, y: canvas.height/2 };
     const radii = { inner:100, outer:180 };
     const drum = document.getElementById('drumroll');
+    const stopSound = document.getElementById('stopSound');
     const tbody = document.querySelector('#inputs tbody');
+    const startBtn = document.getElementById('start-btn');
+    const addBtn = document.getElementById('add-btn');
+    const updateBtn = document.getElementById('update-btn');
 
-    let segments = [], colors = [];
-    let rotation = 0, velocity = 0, decelerating = false;
+    // 状態
+    let segments = [];
+    let colors = [];
+    let rotation = 0;
+    let velocity = 0;
+    let decelerating = false;
     let clickPos = null;
     let animId;
 
     const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
+    const DECELERATION = 0.95;
+    const STOP_THRESHOLD = 0.02;
+    const INITIAL_COUNT = 3;
 
-    document.getElementById('add-btn').addEventListener('click', addEntry);
-    document.getElementById('update-btn').addEventListener('click', () => {
-      if (velocity !== 0) return;
-      parseInputs(); rebuildTable(); drawBoard();
-      document.getElementById('result').textContent = '';
-    });
-    document.getElementById('start-btn').addEventListener('click', () => {
-      parseInputs(); velocity = 0.3; decelerating = false;
-      drum.currentTime = 0; drum.play();
-      document.getElementById('start-btn').disabled = true;
+    function init() {
+      segments = [];
+      colors = [];
+      for (let i = 0; i < INITIAL_COUNT; i++) addEntry();
+      rebuildTable();
+      drawBoard();
       animate();
-    });
-    canvas.addEventListener('click', e => {
-      if (velocity === 0) return;
-      drum.pause(); drum.currentTime = 0;
-      const rect = canvas.getBoundingClientRect();
-      clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      decelerating = true;
-    });
+      bindEvents();
+    }
+
+    function bindEvents() {
+      addBtn.addEventListener('click', addEntry);
+      updateBtn.addEventListener('click', () => {
+        if (velocity !== 0) return;
+        parseInputs(); rebuildTable(); drawBoard();
+        document.getElementById('result').textContent = '';
+      });
+      startBtn.addEventListener('click', () => {
+        parseInputs(); velocity = 0.3; decelerating = false;
+        drum.currentTime = 0; drum.play().catch(() => {});
+        startBtn.disabled = true;
+        cancelAnimationFrame(animId);
+        animate();
+      });
+      canvas.addEventListener('click', e => {
+        if (velocity === 0) return;
+        // ドラムロール停止、停止音再生
+        drum.pause(); drum.currentTime = 0;
+        stopSound.currentTime = 0; stopSound.play().catch(() => {});
+        const rect = canvas.getBoundingClientRect();
+        clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        decelerating = true;
+      });
+    }
 
     function addEntry() {
       const idx = segments.length;
@@ -87,22 +117,18 @@
 
     function rebuildTable() {
       tbody.innerHTML = '';
-      const n = segments.length;
       const cols = 3;
-      for (let i = 0; i < n; i += cols) {
+      for (let i = 0; i < segments.length; i += cols) {
         const tr = document.createElement('tr');
         for (let j = 0; j < cols; j++) {
           const idx = i + j;
-          if (idx < n) {
-            const tdLabel = document.createElement('td');
-            tdLabel.innerHTML = `<input class="segment-input" type="text" value="${segments[idx]}">`;
-            tr.appendChild(tdLabel);
-            const tdColor = document.createElement('td');
-            tdColor.innerHTML = `<input class="color-input" type="color" value="${colors[idx]}">`;
-            tr.appendChild(tdColor);
+          if (idx < segments.length) {
+            tr.innerHTML += `
+              <td><input class="segment-input" type="text" value="${segments[idx]}"></td>
+              <td><input class="color-input" type="color" value="${colors[idx]}"></td>
+            `;
           } else {
-            tr.appendChild(document.createElement('td'));
-            tr.appendChild(document.createElement('td'));
+            tr.innerHTML += '<td></td><td></td>';
           }
         }
         tbody.appendChild(tr);
@@ -110,21 +136,26 @@
     }
 
     function parseInputs() {
-      segments = Array.from(document.querySelectorAll('.segment-input')).map(el => el.value.trim() || '-');
-      colors = Array.from(document.querySelectorAll('.color-input')).map(el => el.value);
-      clickPos = null; decelerating = false; velocity = 0;
+      const segEls = document.querySelectorAll('.segment-input');
+      const colEls = document.querySelectorAll('.color-input');
+      segments = Array.from(segEls).map(el => el.value.trim() || '-');
+      colors = Array.from(colEls).map(el => el.value);
+      clickPos = null;
+      decelerating = false;
+      velocity = 0;
     }
 
     function drawBoard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save(); ctx.translate(center.x, center.y); ctx.rotate(rotation);
       const count = segments.length;
-      if (count > 0) {
-        const angle = (2 * Math.PI) / count;
+      if (count) {
+        const angleStep = 2 * Math.PI / count;
         segments.forEach((seg, i) => {
-          ctx.beginPath(); ctx.moveTo(0, 0);
+          ctx.beginPath();
           ctx.fillStyle = colors[i];
-          ctx.arc(0, 0, radii.outer, i * angle, (i + 1) * angle);
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, radii.outer, i * angleStep, (i + 1) * angleStep);
           ctx.closePath(); ctx.fill();
         });
       }
@@ -132,14 +163,11 @@
       ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       segments.forEach((seg, i) => {
-        const angle = (2 * Math.PI) / segments.length;
-        const a = (i + 0.5) * angle + rotation;
+        const angleStep = 2 * Math.PI / segments.length;
+        const a = (i + 0.5) * angleStep + rotation;
         const r = radii.outer * 0.6;
         ctx.save();
-        ctx.translate(
-          center.x + Math.cos(a) * r,
-          center.y + Math.sin(a) * r
-        );
+        ctx.translate(center.x + Math.cos(a) * r, center.y + Math.sin(a) * r);
         ctx.rotate(a);
         ctx.fillText(seg, 0, 0);
         ctx.restore();
@@ -156,8 +184,8 @@
 
     function animate() {
       if (decelerating) {
-        velocity *= 0.95;
-        if (velocity < 0.02) {
+        velocity *= DECELERATION;
+        if (velocity < STOP_THRESHOLD) {
           decelerating = false; velocity = 0;
           if (clickPos) {
             const mx = clickPos.x - center.x;
@@ -165,12 +193,12 @@
             let lbl = '-';
             if (Math.hypot(mx, my) <= radii.outer) {
               const count = segments.length;
-              const angle = (2 * Math.PI) / count;
+              const angleStep = 2 * Math.PI / count;
               const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-              lbl = segments[Math.floor(a / angle)];
+              lbl = segments[Math.floor(a / angleStep)];
             }
             document.getElementById('result').textContent = lbl;
-            document.getElementById('start-btn').disabled = false;
+            startBtn.disabled = false;
           }
         }
       }
@@ -179,9 +207,7 @@
       animId = requestAnimationFrame(animate);
     }
 
-    // 初期項目を3つ追加
-    for (let i = 0; i < 3; i++) addEntry();
-    rebuildTable(); drawBoard(); animate();
+    init();
   </script>
 </body>
 </html>
