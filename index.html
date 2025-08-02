@@ -36,8 +36,9 @@
 </head>
 <body>
   <div id="controls">
-    <label>セグメント (ラベルをカンマ区切り): <input id="segments-input" type="text" value="A,B,C,D" size="20"></label>
-    <label>半径 (bull,inner,outerをカンマ): <input id="radii-input" type="text" value="30,100,180" size="15"></label>
+    <label>セグメント (10個, カンマ区切り): <input id="segments-input" type="text" value="A,B,C,D,E,F,G,H,I,J" size="30"></label>
+    <label>半径 (inner,outer): <input id="radii-input" type="text" value="100,180" size="15"></label>
+    <label>色 (10色, カンマ区切り): <input id="colors-input" type="text" value="#ff8888,#88ff88,#8888ff,#ff88ff,#88ffff,#ffff88,#ffcc88,#cc88ff,#88ccff,#ccbbee" size="40"></label>
     <button id="update-btn">ターゲット更新</button>
     <div>※ターゲットが回転しています。円内をクリックしてください。</div>
   </div>
@@ -48,10 +49,27 @@
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
-    let segments = ['A','B','C','D'];
-    let radii = { bull: 30, inner: 100, outer: 180 };
+
+    let segments = [];
+    let radii = {};
+    let colors = [];
     let rotation = 0;
     let animId;
+
+    function parseInputs() {
+      // セグメント
+      const segInput = document.getElementById('segments-input').value.trim();
+      segments = segInput ? segInput.split(',').map(s => s.trim()) : [];
+      // 半径(inner, outer)
+      const radParts = document.getElementById('radii-input').value.trim().split(',').map(n => parseInt(n, 10));
+      if (radParts.length === 2 && radParts.every(n => !isNaN(n))) {
+        radii = { inner: radParts[0], outer: radParts[1] };
+      }
+      // 色
+      const colInput = document.getElementById('colors-input').value.trim();
+      const colParts = colInput ? colInput.split(',').map(c => c.trim()) : [];
+      colors = colParts;
+    }
 
     function drawBoard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -60,29 +78,25 @@
       ctx.rotate(rotation);
 
       const segCount = segments.length;
+      if (segCount === 0) return;
       const anglePer = 2 * Math.PI / segCount;
 
-      // 外側リングのセグメント
+      // セグメント描画
       for (let i = 0; i < segCount; i++) {
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.fillStyle = i % 2 === 0 ? '#c8c8c8' : '#e0e0e0';
+        ctx.fillStyle = colors[i] || (i % 2 ? '#e0e0e0' : '#c8c8c8');
         ctx.arc(0, 0, radii.outer, i * anglePer, (i + 1) * anglePer);
         ctx.closePath();
         ctx.fill();
       }
-      // 中央リング
+      // 内側リング
       ctx.beginPath();
       ctx.fillStyle = '#ffffff';
       ctx.arc(0, 0, radii.inner, 0, 2 * Math.PI);
       ctx.fill();
-      // ブルズアイ
-      ctx.beginPath();
-      ctx.fillStyle = '#ff4d4d';
-      ctx.arc(0, 0, radii.bull, 0, 2 * Math.PI);
-      ctx.fill();
 
-      // セグメントラベル
+      // ラベル描画
       ctx.fillStyle = '#000';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
@@ -109,37 +123,33 @@
       const x = e.clientX - rect.left - center.x;
       const y = e.clientY - rect.top - center.y;
       const dist = Math.hypot(x, y);
-      const clickAngle = Math.atan2(y, x) - rotation;
-      const twoPi = 2 * Math.PI;
-      const normAngle = (clickAngle % twoPi + twoPi) % twoPi;
-      const segIndex = Math.floor(normAngle / (twoPi / segments.length));
 
       let hitType;
-      if (dist <= radii.bull) hitType = '大当たり (Bullseye)';
-      else if (dist <= radii.inner) hitType = '当たり';
+      if (dist <= radii.inner) hitType = '当たり';
       else if (dist <= radii.outer) hitType = '端っこヒット';
       else hitType = 'はずれ';
 
-      const label = dist <= radii.outer ? segments[segIndex] : '-';
+      let label = '-';
+      if (dist <= radii.outer && segments.length > 0) {
+        const clickAngle = Math.atan2(y, x) - rotation;
+        const twoPi = 2 * Math.PI;
+        const norm = (clickAngle % twoPi + twoPi) % twoPi;
+        const idx = Math.floor(norm / (twoPi / segments.length));
+        label = segments[idx];
+      }
       document.getElementById('result').textContent = label + ' → ' + hitType;
     });
 
     document.getElementById('update-btn').addEventListener('click', () => {
-      // セグメント再設定
-      const segInput = document.getElementById('segments-input').value.trim();
-      segments = segInput ? segInput.split(',').map(s => s.trim()) : [];
-      // 半径再設定
-      const radInput = document.getElementById('radii-input').value.trim();
-      const parts = radInput.split(',').map(n => parseInt(n, 10));
-      if (parts.length === 3 && parts.every(n => !isNaN(n))) {
-        radii = { bull: parts[0], inner: parts[1], outer: parts[2] };
-      }
-      // 回転リセット
+      cancelAnimationFrame(animId);
       rotation = 0;
+      parseInputs();
       drawBoard();
+      animate();
     });
 
-    // 初期描画＋アニメ開始
+    // 初期設定
+    parseInputs();
     drawBoard();
     animate();
   </script>
