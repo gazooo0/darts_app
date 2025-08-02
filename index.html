@@ -121,8 +121,8 @@
         ctx.arc(0, 0, radii.outer, i * angle, (i + 1) * angle);
         ctx.closePath(); ctx.fill();
       }
-      // 内側
-      ctx.beginPath(); ctx.fillStyle = '#fff'; ctx.arc(0, 0, radii.inner, 0, 2 * Math.PI); ctx.fill();
+      // 内側：中央をセグメント1の色で塗りつぶし
+      ctx.beginPath(); ctx.fillStyle = colors[0] || '#fff'; ctx.arc(0, 0, radii.inner, 0, 2 * Math.PI); ctx.fill();
       // ラベル
       ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = 0; i < count; i++) {
