@@ -29,25 +29,28 @@
       gap: 8px;
       align-items: center;
     }
-    #inputs {
+    table#inputs {
       margin-top: 12px;
       border-collapse: collapse;
     }
-    #inputs th, #inputs td {
+    table#inputs th,
+    table#inputs td {
       border: 1px solid #999;
       padding: 4px 8px;
       text-align: center;
     }
-    #inputs th {
+    table#inputs th {
       background: #eee;
     }
-    #inputs input[type="text"] {
-      width: 60px;
+    table#inputs input[type="text"] {
+      width: 50px;
       border: none;
       text-align: center;
     }
-    #inputs input[type="color"] {
+    table#inputs input[type="color"] {
       border: none;
+      width: 30px;
+      height: 20px;
       padding: 0;
     }
     button:disabled {
@@ -59,18 +62,25 @@
 <body>
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
-  <table id="inputs">
-    <thead>
-      <tr><th>Label</th><th>Color</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+
   <div id="controls">
     <button id="add-btn">行追加</button>
     <button id="update-btn">更新</button>
     <button id="start-btn">Start</button>
-    <span>※Startを押して回転、円をクリックで減速</span>
+    <span>※Startを押して回転開始、円をクリックで徐々に停止</span>
   </div>
+
+  <table id="inputs">
+    <thead>
+      <tr>
+        <th>Label</th><th>Color</th>
+        <th>Label</th><th>Color</th>
+        <th>Label</th><th>Color</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <script>
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
@@ -80,96 +90,139 @@
     let rotation=0, velocity=0, animId;
     let decelerating=false, clickPos=null;
 
-    const defaultColors=['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
+    const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
     const tbody = document.querySelector('#inputs tbody');
 
-    document.getElementById('add-btn').addEventListener('click',()=>{
-      const idx=tbody.children.length;
-      const tr=document.createElement('tr');
-      const tdLabel=document.createElement('td');
-      const inLabel=document.createElement('input');
-      inLabel.type='text'; inLabel.value=(idx+1);
+    document.getElementById('add-btn').addEventListener('click', addEntry);
+    function addEntry() {
+      const idx = tbody.querySelectorAll('input.segment-input').length;
+      const color = defaultColors[idx % defaultColors.length];
+      const colIdx = idx % 3;
+      let tr;
+      if (colIdx === 0) {
+        tr = document.createElement('tr');
+        tbody.appendChild(tr);
+      } else {
+        tr = tbody.lastElementChild;
+      }
+      // Label cell
+      const tdLabel = document.createElement('td');
+      const inLabel = document.createElement('input');
+      inLabel.type = 'text';
+      inLabel.className = 'segment-input';
+      inLabel.value = String(idx+1);
       tdLabel.appendChild(inLabel);
-      const tdColor=document.createElement('td');
-      const inColor=document.createElement('input');
-      inColor.type='color'; inColor.value=defaultColors[idx%defaultColors.length];
+      // Color cell
+      const tdColor = document.createElement('td');
+      const inColor = document.createElement('input');
+      inColor.type = 'color';
+      inColor.className = 'color-input';
+      inColor.value = color;
       tdColor.appendChild(inColor);
-      tr.append(tdLabel,tdColor);
-      tbody.appendChild(tr);
-    });
-
-    function parseInputs(){
-      segments=[]; colors=[];
-      document.querySelectorAll('#inputs tbody tr').forEach(tr=>{
-        const lbl=tr.children[0].querySelector('input').value.trim()||'-';
-        const col=tr.children[1].querySelector('input').value;
-        segments.push(lbl); colors.push(col);
-      });
-      clickPos=null; decelerating=false; velocity=0;
+      tr.appendChild(tdLabel);
+      tr.appendChild(tdColor);
+      // If not full row, fill placeholders
+      if (colIdx === 0) {
+        // add two more placeholder cells
+        tr.appendChild(tdLabel.cloneNode(true));
+        tr.appendChild(tdColor.cloneNode(true));
+        tr.appendChild(tdLabel.cloneNode(true));
+        tr.appendChild(tdColor.cloneNode(true));
+      }
     }
 
-    function drawBoard(){
+    function parseInputs() {
+      segments = [];
+      colors = [];
+      document.querySelectorAll('input.segment-input').forEach(inp => {
+        segments.push(inp.value.trim() || '-');
+      });
+      document.querySelectorAll('input.color-input').forEach(inp => {
+        colors.push(inp.value);
+      });
+      clickPos = null;
+      decelerating = false;
+      velocity = 0;
+    }
+
+    function drawBoard() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.save(); ctx.translate(center.x,center.y); ctx.rotate(rotation);
-      const count=segments.length;
-      if(count>0){
-        const angle=2*Math.PI/count;
-        for(let i=0;i<count;i++){
+      ctx.save(); ctx.translate(center.x, center.y); ctx.rotate(rotation);
+      const count = segments.length;
+      if (count > 0) {
+        const angle = 2 * Math.PI / count;
+        for (let i = 0; i < count; i++) {
           ctx.beginPath(); ctx.moveTo(0,0);
-          ctx.fillStyle=colors[i];
-          ctx.arc(0,0,radii.outer,i*angle,(i+1)*angle);
+          ctx.fillStyle = colors[i];
+          ctx.arc(0,0,radii.outer, i*angle, (i+1)*angle);
           ctx.closePath(); ctx.fill();
         }
         ctx.restore();
         // labels
-        ctx.fillStyle='#000'; ctx.font='14px sans-serif';
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        for(let i=0;i<count;i++){
-          const a=(i+0.5)*2*Math.PI/count + rotation;
-          const r=radii.outer*0.6;
-          const x=center.x+Math.cos(a)*r;
-          const y=center.y+Math.sin(a)*r;
-          ctx.save(); ctx.translate(x,y); ctx.rotate(a);
-          ctx.fillText(segments[i],0,0);
+        ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (let i = 0; i < count; i++) {
+          const a = (i + 0.5) * 2 * Math.PI / count + rotation;
+          const r = radii.outer * 0.6;
+          const x = center.x + Math.cos(a) * r;
+          const y = center.y + Math.sin(a) * r;
+          ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+          ctx.fillText(segments[i], 0, 0);
           ctx.restore();
         }
       } else ctx.restore();
-      if(clickPos){
-        ctx.beginPath();ctx.strokeStyle='red';ctx.lineWidth=2;
-        ctx.moveTo(clickPos.x-10,clickPos.y);ctx.lineTo(clickPos.x+10,clickPos.y);
-        ctx.moveTo(clickPos.x,clickPos.y-10);ctx.lineTo(clickPos.x,clickPos.y+10);
+      if (clickPos) {
+        ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
+        ctx.moveTo(clickPos.x-10, clickPos.y);
+        ctx.lineTo(clickPos.x+10, clickPos.y);
+        ctx.moveTo(clickPos.x, clickPos.y-10);
+        ctx.lineTo(clickPos.x, clickPos.y+10);
         ctx.stroke();
       }
     }
 
-    function animate(){
-      if(decelerating){velocity*=0.95;
-        if(velocity<0.02){decelerating=false;velocity=0;
-          if(clickPos){
-            const mx=clickPos.x-center.x, my=clickPos.y-center.y;
-            let lbl='-';
-            if(Math.hypot(mx,my)<=radii.outer){
-              const count=segments.length, angle=2*Math.PI/count;
-              const a=((Math.atan2(my,mx)-rotation)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
-              lbl=segments[Math.floor(a/angle)];
+    function animate() {
+      if (decelerating) {
+        velocity *= 0.95;
+        if (velocity < 0.02) {
+          decelerating = false;
+          velocity = 0;
+          if (clickPos) {
+            const mx = clickPos.x - center.x, my = clickPos.y - center.y;
+            let lbl = '-';
+            if (Math.hypot(mx,my) <= radii.outer) {
+              const count = segments.length;
+              const angle = 2 * Math.PI / count;
+              const a = ((Math.atan2(my,mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+              lbl = segments[Math.floor(a / angle)];
             }
-            document.getElementById('result').textContent=lbl;
-            document.getElementById('start-btn').disabled=false;
+            document.getElementById('result').textContent = lbl;
+            document.getElementById('start-btn').disabled = false;
           }
         }
       }
-      rotation+=velocity; drawBoard(); animId=requestAnimationFrame(animate);
+      rotation += velocity;
+      drawBoard();
+      animId = requestAnimationFrame(animate);
     }
 
-    canvas.addEventListener('click',e=>{
-      if(velocity===0) return;
-      const rect=canvas.getBoundingClientRect();
-      clickPos={x:e.clientX-rect.left,y:e.clientY-rect.top}; decelerating=true;
+    canvas.addEventListener('click', e => {
+      if (velocity === 0) return;
+      const rect = canvas.getBoundingClientRect();
+      clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      decelerating = true;
     });
-    document.getElementById('update-btn').addEventListener('click',()=>{if(velocity!==0)return;parseInputs();drawBoard();document.getElementById('result').textContent='';});
-    document.getElementById('start-btn').addEventListener('click',()=>{parseInputs();velocity=0.3;decelerating=false;document.getElementById('start-btn').disabled=true;animate();});
 
-    // 初期2行
+    document.getElementById('update-btn').addEventListener('click', () => {
+      if (velocity !== 0) return;
+      parseInputs(); drawBoard(); document.getElementById('result').textContent = '';
+    });
+    document.getElementById('start-btn').addEventListener('click', () => {
+      parseInputs(); velocity = 0.3; decelerating = false;
+      document.getElementById('start-btn').disabled = true; animate();
+    });
+
+    // 初期2行追加
     document.getElementById('add-btn').click();
     document.getElementById('add-btn').click();
     drawBoard(); animate();
