@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>回転ターゲットダーツアプリ</title>
+  <title>る～れっとだーつ！</title>
   <style>
     body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; margin: 20px; }
     canvas { border: 2px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
@@ -16,6 +16,7 @@
     table#inputs th { background: #eee; }
     table#inputs input[type="text"] { width: 100px; border: none; text-align: center; }
     table#inputs input[type="color"] { border: none; width: 30px; height: 20px; padding: 0; }
+    #credits { font-size: 12px; color: #666; margin-top: 8px; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
@@ -23,6 +24,7 @@
   <audio id="drumroll" src="drumroll.mp3" loop></audio>
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
+
   <div id="start-control">
     <button id="start-btn">Start</button>
   </div>
@@ -31,14 +33,17 @@
     <button id="update-btn">更新</button>
     <span>※円をクリックで徐々に停止</span>
   </div>
+
   <table id="inputs">
     <thead>
       <tr><th>Label</th><th>Color</th><th>Label</th><th>Color</th><th>Label</th><th>Color</th></tr>
     </thead>
     <tbody></tbody>
   </table>
+
+  <div id="credits">使用素材：効果音工房様</div>
+
   <script>
-    // キャッシュ DOM 要素
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width/2, y: canvas.height/2 };
@@ -46,7 +51,6 @@
     const drum = document.getElementById('drumroll');
     const tbody = document.querySelector('#inputs tbody');
 
-    // 状態
     let segments = [], colors = [];
     let rotation = 0, velocity = 0, decelerating = false;
     let clickPos = null;
@@ -62,13 +66,13 @@
     });
     document.getElementById('start-btn').addEventListener('click', () => {
       parseInputs(); velocity = 0.3; decelerating = false;
-      drum.currentTime = 0; drum.play(); // ドラムロール
+      drum.currentTime = 0; drum.play();
       document.getElementById('start-btn').disabled = true;
       animate();
     });
     canvas.addEventListener('click', e => {
       if (velocity === 0) return;
-      drum.pause(); drum.currentTime = 0; // 音停止
+      drum.pause(); drum.currentTime = 0;
       const rect = canvas.getBoundingClientRect();
       clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       decelerating = true;
@@ -106,20 +110,16 @@
     }
 
     function parseInputs() {
-      const segEls = document.querySelectorAll('.segment-input');
-      const colEls = document.querySelectorAll('.color-input');
-      segments = Array.from(segEls).map(el => el.value.trim() || '-');
-      colors = Array.from(colEls).map(el => el.value);
+      segments = Array.from(document.querySelectorAll('.segment-input')).map(el => el.value.trim() || '-');
+      colors = Array.from(document.querySelectorAll('.color-input')).map(el => el.value);
       clickPos = null; decelerating = false; velocity = 0;
     }
 
     function drawBoard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-      ctx.translate(center.x, center.y);
-      ctx.rotate(rotation);
+      ctx.save(); ctx.translate(center.x, center.y); ctx.rotate(rotation);
       const count = segments.length;
-      if (count) {
+      if (count > 0) {
         const angle = (2 * Math.PI) / count;
         segments.forEach((seg, i) => {
           ctx.beginPath(); ctx.moveTo(0, 0);
@@ -129,7 +129,6 @@
         });
       }
       ctx.restore();
-      // ラベル描画
       ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       segments.forEach((seg, i) => {
@@ -145,7 +144,6 @@
         ctx.fillText(seg, 0, 0);
         ctx.restore();
       });
-      // クリックマーカー
       if (clickPos) {
         ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
         ctx.moveTo(clickPos.x - 10, clickPos.y);
@@ -158,10 +156,9 @@
 
     function animate() {
       if (decelerating) {
-        velocity *= 0.95; // 減速係数
+        velocity *= 0.95;
         if (velocity < 0.02) {
-          decelerating = false;
-          velocity = 0;
+          decelerating = false; velocity = 0;
           if (clickPos) {
             const mx = clickPos.x - center.x;
             const my = clickPos.y - center.y;
