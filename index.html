@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ダーツ当たり判定アプリ</title>
+  <title>回転ターゲットダーツアプリ</title>
   <style>
     body {
       display: flex;
@@ -12,23 +12,35 @@
       font-family: sans-serif;
       margin: 20px;
     }
+    #controls {
+      margin-bottom: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #controls label {
+      font-size: 14px;
+    }
     canvas {
       border: 2px solid #333;
       border-radius: 8px;
+      background: #fff;
     }
     #result {
-      font-size: 24px;
-      margin-top: 16px;
-      height: 32px;
-    }
-    #info {
-      margin-bottom: 8px;
-      color: #555;
+      font-size: 20px;
+      margin-top: 12px;
+      min-height: 24px;
     }
   </style>
 </head>
 <body>
-  <div id="info">円をクリックして、当たり判定を試してください。</div>
+  <div id="controls">
+    <label>セグメント (ラベルをカンマ区切り): <input id="segments-input" type="text" value="A,B,C,D" size="20"></label>
+    <label>半径 (bull,inner,outerをカンマ): <input id="radii-input" type="text" value="30,100,180" size="15"></label>
+    <button id="update-btn">ターゲット更新</button>
+    <div>※ターゲットが回転しています。円内をクリックしてください。</div>
+  </div>
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
 
@@ -36,52 +48,100 @@
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
-    // 各リングの半径（ピクセル）
-    const radii = {
-      bull: 30,      // 真ん中の的
-      inner: 100,    // 中央リング
-      outer: 180     // 外側リング
-    };
+    let segments = ['A','B','C','D'];
+    let radii = { bull: 30, inner: 100, outer: 180 };
+    let rotation = 0;
+    let animId;
 
-    // ダーツボードを描画
     function drawBoard() {
-      // 外側リング
-      ctx.fillStyle = '#c8c8c8';
-      ctx.beginPath();
-      ctx.arc(center.x, center.y, radii.outer, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(center.x, center.y);
+      ctx.rotate(rotation);
+
+      const segCount = segments.length;
+      const anglePer = 2 * Math.PI / segCount;
+
+      // 外側リングのセグメント
+      for (let i = 0; i < segCount; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.fillStyle = i % 2 === 0 ? '#c8c8c8' : '#e0e0e0';
+        ctx.arc(0, 0, radii.outer, i * anglePer, (i + 1) * anglePer);
+        ctx.closePath();
+        ctx.fill();
+      }
       // 中央リング
-      ctx.fillStyle = '#e0e0e0';
       ctx.beginPath();
-      ctx.arc(center.x, center.y, radii.inner, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.arc(0, 0, radii.inner, 0, 2 * Math.PI);
       ctx.fill();
-      // 真ん中（ブルズアイ）
+      // ブルズアイ
+      ctx.beginPath();
       ctx.fillStyle = '#ff4d4d';
-      ctx.beginPath();
-      ctx.arc(center.x, center.y, radii.bull, 0, 2 * Math.PI);
+      ctx.arc(0, 0, radii.bull, 0, 2 * Math.PI);
       ctx.fill();
+
+      // セグメントラベル
+      ctx.fillStyle = '#000';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < segCount; i++) {
+        const midAngle = (i + 0.5) * anglePer;
+        const labelR = (radii.inner + radii.outer) / 2;
+        const lx = Math.cos(midAngle) * labelR;
+        const ly = Math.sin(midAngle) * labelR;
+        ctx.fillText(segments[i], lx, ly);
+      }
+
+      ctx.restore();
     }
 
-    drawBoard();
+    function animate() {
+      rotation += 0.01;
+      drawBoard();
+      animId = requestAnimationFrame(animate);
+    }
 
-    // クリックイベントで当たり判定
     canvas.addEventListener('click', e => {
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const distance = Math.hypot(x - center.x, y - center.y);
-      const output = document.getElementById('result');
+      const x = e.clientX - rect.left - center.x;
+      const y = e.clientY - rect.top - center.y;
+      const dist = Math.hypot(x, y);
+      const clickAngle = Math.atan2(y, x) - rotation;
+      const twoPi = 2 * Math.PI;
+      const normAngle = (clickAngle % twoPi + twoPi) % twoPi;
+      const segIndex = Math.floor(normAngle / (twoPi / segments.length));
 
-      if (distance <= radii.bull) {
-        output.textContent = '大当たり！Bullseye!';
-      } else if (distance <= radii.inner) {
-        output.textContent = '当たり！';
-      } else if (distance <= radii.outer) {
-        output.textContent = '端っこヒット！';
-      } else {
-        output.textContent = 'はずれ！';
-      }
+      let hitType;
+      if (dist <= radii.bull) hitType = '大当たり (Bullseye)';
+      else if (dist <= radii.inner) hitType = '当たり';
+      else if (dist <= radii.outer) hitType = '端っこヒット';
+      else hitType = 'はずれ';
+
+      const label = dist <= radii.outer ? segments[segIndex] : '-';
+      document.getElementById('result').textContent = label + ' → ' + hitType;
     });
+
+    document.getElementById('update-btn').addEventListener('click', () => {
+      // セグメント再設定
+      const segInput = document.getElementById('segments-input').value.trim();
+      segments = segInput ? segInput.split(',').map(s => s.trim()) : [];
+      // 半径再設定
+      const radInput = document.getElementById('radii-input').value.trim();
+      const parts = radInput.split(',').map(n => parseInt(n, 10));
+      if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+        radii = { bull: parts[0], inner: parts[1], outer: parts[2] };
+      }
+      // 回転リセット
+      rotation = 0;
+      drawBoard();
+    });
+
+    // 初期描画＋アニメ開始
+    drawBoard();
+    animate();
   </script>
 </body>
 </html>
