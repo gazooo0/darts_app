@@ -3,14 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>る～れっとだーつ！</title>
+  <title>回転ターゲットダーツアプリ</title>
   <style>
     body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; margin: 20px; }
     canvas { border: 2px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
     #result { font-size: 20px; margin-top: 12px; min-height: 24px; }
-    #start-control { margin-top: 12px; }
+    #start-control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 12px;
+    }
     #start-btn { font-size: 1.2em; padding: 10px 20px; }
-    #controls { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+    #controls {
+      margin-top: 12px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      align-items: center;
+    }
     table#inputs { margin-top: 12px; border-collapse: collapse; }
     table#inputs th, table#inputs td { border: 1px solid #999; padding: 4px 8px; text-align: center; }
     table#inputs th { background: #eee; }
@@ -24,13 +35,12 @@
   <div id="result"></div>
 
   <div id="start-control">
-    <button id="start-btn">回転スタート</button>
-    <span><br>※回転している円盤をクリックするとターゲットが付き円盤が止まります。</span>
+    <button id="start-btn">Start</button>
   </div>
   <div id="controls">
-    <button id="add-btn">項目を追加</button>
-    <button id="update-btn">設定を反映</button>
-
+    <button id="add-btn">行追加</button>
+    <button id="update-btn">更新</button>
+    <span>※円をクリックで徐々に停止</span>
   </div>
 
   <table id="inputs">
