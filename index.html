@@ -57,7 +57,7 @@
       <label>半径 (inner,outer): <input id="radii-input" type="text" value="100,180" size="10"></label>
       <button id="update-btn">更新</button>
       <button id="start-btn">Start</button>
-      <div>※Startを押して高速回転、円をクリックすると停止</div>
+      <div>※Startを押して回転開始、円をクリックすると徐々に停止</div>
     </div>
     <div class="control-group" id="labels-group">
       <!-- ラベル入力 10個 -->
@@ -93,28 +93,26 @@
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
-    let segments = [];
-    let radii = {};
-    let colors = [];
-    let rotation = 0;
-    let animId;
-    let spinning = false;
-    let marker = null; // クリック位置マーカー
+    let segments = [], radii = {}, colors = [];
+    let rotation = 0, velocity = 0, animId;
+    let decelerating = false;
+    let clickPos = null;
 
     function parseInputs() {
       const [inner, outer] = document.getElementById('radii-input')
         .value.split(',').map(n => parseInt(n, 10));
       radii = { inner, outer };
       segments = [];
-      for (let i = 1; i <= 10; i++) {
-        const val = document.getElementById(`segment-${i}`).value.trim();
-        segments.push(val || '-');
-      }
+      for (let i = 1; i <= 10; i++) segments.push(
+        document.getElementById(`segment-${i}`).value.trim() || '-'
+      );
       colors = [];
-      for (let i = 1; i <= 10; i++) {
-        colors.push(document.getElementById(`color-${i}`).value);
-      }
-      marker = null;
+      for (let i = 1; i <= 10; i++) colors.push(
+        document.getElementById(`color-${i}`).value
+      );
+      clickPos = null;
+      decelerating = false;
+      velocity = 0;
     }
 
     function drawBoard() {
@@ -124,84 +122,73 @@
       ctx.rotate(rotation);
       const count = segments.length;
       const angle = (2 * Math.PI) / count;
-
       for (let i = 0; i < count; i++) {
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.fillStyle = colors[i];
         ctx.arc(0, 0, radii.outer, i * angle, (i + 1) * angle);
-        ctx.closePath();
-        ctx.fill();
+        ctx.closePath(); ctx.fill();
       }
-      // ラベル
-      ctx.fillStyle = '#000';
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = 0; i < count; i++) {
         const a = (i + 0.5) * angle;
         const r = radii.outer * 0.6;
         ctx.fillText(segments[i], Math.cos(a) * r, Math.sin(a) * r);
       }
       ctx.restore();
-
-      // マーカー描画
-      if (marker) {
-        ctx.beginPath();
-        ctx.fillStyle = '#000';
-        ctx.arc(marker.x, marker.y, 3, 0, 2 * Math.PI);
+      if (clickPos) {
+        ctx.beginPath(); ctx.fillStyle = '#000';
+        ctx.arc(clickPos.x, clickPos.y, 3, 0, 2 * Math.PI);
         ctx.fill();
       }
     }
 
     function animate() {
-      if (spinning) {
-        rotation += 0.3; // 高速回転
+      if (decelerating) {
+        velocity *= 0.95;
+        if (velocity < 0.02) {
+          decelerating = false;
+          velocity = 0;
+          const { x, y } = clickPos;
+          const mx = x - center.x, my = y - center.y;
+          const d = Math.hypot(mx, my);
+          let label = '-';
+          if (d <= radii.outer) {
+            const count = segments.length;
+            const angle = (2 * Math.PI) / count;
+            const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            label = segments[Math.floor(a / angle)];
+          }
+          document.getElementById('result').textContent = label;
+          document.getElementById('start-btn').disabled = false;
+        }
       }
+      rotation += velocity;
       drawBoard();
       animId = requestAnimationFrame(animate);
     }
 
     canvas.addEventListener('click', e => {
-      if (!spinning) return;
-      spinning = false;
-      document.getElementById('start-btn').disabled = false;
+      if (velocity === 0) return;
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      marker = { x, y };
-      // 判定はラベルのみ表示
-      const mx = x - center.x;
-      const my = y - center.y;
-      const d = Math.hypot(mx, my);
-      let label = '-';
-      if (d <= radii.outer) {
-        const angle = (2 * Math.PI) / segments.length;
-        const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-        const idx = Math.floor(a / angle);
-        label = segments[idx];
-      }
-      document.getElementById('result').textContent = label;
+      clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      decelerating = true;
     });
 
     document.getElementById('update-btn').addEventListener('click', () => {
-      if (spinning) return;
-      parseInputs();
-      drawBoard();
-      document.getElementById('result').textContent = '';
+      if (velocity !== 0) return;
+      parseInputs(); drawBoard(); document.getElementById('result').textContent = '';
     });
 
     document.getElementById('start-btn').addEventListener('click', () => {
-      parseInputs();
-      spinning = true;
+      parseInputs(); velocity = 0.3; decelerating = false;
       document.getElementById('start-btn').disabled = true;
       animate();
     });
 
-    // 初期描画
-    parseInputs();
-    drawBoard();
-    animate();
+    // 初期表示
+    parseInputs(); drawBoard(); animate();
   </script>
 </body>
 </html>
