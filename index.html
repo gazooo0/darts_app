@@ -97,9 +97,11 @@
     let rotation = 0;
     let animId;
     let spinning = false;
+    let marker = null; // クリック位置マーカー
 
     function parseInputs() {
-      const [inner, outer] = document.getElementById('radii-input').value.split(',').map(n => parseInt(n, 10));
+      const [inner, outer] = document.getElementById('radii-input')
+        .value.split(',').map(n => parseInt(n, 10));
       radii = { inner, outer };
       segments = [];
       for (let i = 1; i <= 10; i++) {
@@ -110,6 +112,7 @@
       for (let i = 1; i <= 10; i++) {
         colors.push(document.getElementById(`color-${i}`).value);
       }
+      marker = null;
     }
 
     function drawBoard() {
@@ -128,7 +131,7 @@
         ctx.closePath();
         ctx.fill();
       }
-
+      // ラベル
       ctx.fillStyle = '#000';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
@@ -139,6 +142,14 @@
         ctx.fillText(segments[i], Math.cos(a) * r, Math.sin(a) * r);
       }
       ctx.restore();
+
+      // マーカー描画
+      if (marker) {
+        ctx.beginPath();
+        ctx.fillStyle = '#000';
+        ctx.arc(marker.x, marker.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      }
     }
 
     function animate() {
@@ -153,20 +164,24 @@
       if (!spinning) return;
       spinning = false;
       document.getElementById('start-btn').disabled = false;
-      // アニメ停止は次フレーム以降
-      // 判定
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left - center.x;
-      const y = e.clientY - rect.top - center.y;
-      const d = Math.hypot(x, y);
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      marker = { x, y };
+      // 判定
+      const mx = x - center.x;
+      const my = y - center.y;
+      const d = Math.hypot(mx, my);
       let result;
       if (d <= radii.inner) result = '当たり';
       else if (d <= radii.outer) result = '端っこヒット';
       else result = 'はずれ';
       let label = '-';
       if (d <= radii.outer) {
-        const a = ((Math.atan2(y, x) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-        label = segments[Math.floor(a / ((2 * Math.PI) / count))];
+        const angle = (2 * Math.PI) / segments.length;
+        const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        const idx = Math.floor(a / angle);
+        label = segments[idx];
       }
       document.getElementById('result').textContent = `${label} → ${result}`;
     });
