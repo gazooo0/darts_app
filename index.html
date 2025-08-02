@@ -79,8 +79,8 @@
       for (let i = 0; i < INITIAL_COUNT; i++) addEntry();
       rebuildTable();
       drawBoard();
-      animate();
       bindEvents();
+      animate();
     }
 
     function bindEvents() {
@@ -99,7 +99,6 @@
       });
       canvas.addEventListener('click', e => {
         if (velocity === 0) return;
-        // ドラムロール停止、停止音再生
         drum.pause(); drum.currentTime = 0;
         stopSound.currentTime = 0; stopSound.play().catch(() => {});
         const rect = canvas.getBoundingClientRect();
@@ -152,8 +151,7 @@
       if (count) {
         const angleStep = 2 * Math.PI / count;
         segments.forEach((seg, i) => {
-          ctx.beginPath();
-          ctx.fillStyle = colors[i];
+          ctx.beginPath(); ctx.fillStyle = colors[i];
           ctx.moveTo(0, 0);
           ctx.arc(0, 0, radii.outer, i * angleStep, (i + 1) * angleStep);
           ctx.closePath(); ctx.fill();
@@ -183,6 +181,8 @@
     }
 
     function animate() {
+      // 既存のアニメーションをキャンセルして重複を防止
+      cancelAnimationFrame(animId);
       if (decelerating) {
         velocity *= DECELERATION;
         if (velocity < STOP_THRESHOLD) {
@@ -207,6 +207,7 @@
       animId = requestAnimationFrame(animate);
     }
 
+    // 初期化実行
     init();
   </script>
 </body>
