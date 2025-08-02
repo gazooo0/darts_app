@@ -13,7 +13,7 @@
       margin: 20px;
     }
     #controls {
-      margin-bottom: 12px;
+      margin-top: 12px;
       display: flex;
       gap: 8px;
       align-items: center;
@@ -22,7 +22,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-top: 12px;
     }
     .entry {
       display: flex;
@@ -51,6 +51,9 @@
   </style>
 </head>
 <body>
+  <canvas id="dartboard" width="400" height="400"></canvas>
+  <div id="result"></div>
+
   <div id="controls">
     <button id="add-btn">項目追加</button>
     <button id="update-btn">更新</button>
@@ -58,23 +61,20 @@
     <span>※Startを押して回転開始、円をクリックすると徐々に停止</span>
   </div>
   <div id="inputs"></div>
-  <canvas id="dartboard" width="400" height="400"></canvas>
-  <div id="result"></div>
 
   <script>
     const canvas = document.getElementById('dartboard');
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
     const radii = { inner: 100, outer: 180 };
-    let segments = [];
-    let colors = [];
+    let segments = [], colors = [];
     let rotation = 0, velocity = 0, animId;
     let decelerating = false, clickPos = null;
 
     const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
     const inputsContainer = document.getElementById('inputs');
 
-    document.getElementById('add-btn').addEventListener('click', () => addEntry());
+    document.getElementById('add-btn').addEventListener('click', addEntry);
     function addEntry() {
       const index = inputsContainer.children.length;
       const labelChar = String.fromCharCode(65 + index);
