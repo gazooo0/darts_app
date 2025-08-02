@@ -5,71 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>回転ターゲットダーツアプリ</title>
   <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-family: sans-serif;
-      margin: 20px;
-    }
-    canvas {
-      border: 2px solid #333;
-      border-radius: 8px;
-      background: #fff;
-      cursor: pointer;
-    }
-    #result {
-      font-size: 20px;
-      margin-top: 12px;
-      min-height: 24px;
-    }
-    #controls {
-      margin-top: 12px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    table#inputs {
-      margin-top: 12px;
-      border-collapse: collapse;
-    }
-    table#inputs th,
-    table#inputs td {
-      border: 1px solid #999;
-      padding: 4px 8px;
-      text-align: center;
-    }
-    table#inputs th {
-      background: #eee;
-    }
-    table#inputs input[type="text"] {
-      width: 50px;
-      border: none;
-      text-align: center;
-    }
-    table#inputs input[type="color"] {
-      border: none;
-      width: 30px;
-      height: 20px;
-      padding: 0;
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; margin: 20px; }
+    canvas { border: 2px solid #333; border-radius: 8px; background: #fff; cursor: pointer; }
+    #result { font-size: 20px; margin-top: 12px; min-height: 24px; }
+    #controls { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+    table#inputs { margin-top: 12px; border-collapse: collapse; }
+    table#inputs th, table#inputs td { border: 1px solid #999; padding: 4px 8px; text-align: center; }
+    table#inputs th { background: #eee; }
+    table#inputs input[type="text"] { width: 100px; border: none; text-align: center; }
+    table#inputs input[type="color"] { border: none; width: 30px; height: 20px; padding: 0; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
   <canvas id="dartboard" width="400" height="400"></canvas>
   <div id="result"></div>
-
   <div id="controls">
     <button id="add-btn">行追加</button>
     <button id="update-btn">更新</button>
     <button id="start-btn">Start</button>
     <span>※Startを押して回転開始、円をクリックで徐々に停止</span>
   </div>
-
   <table id="inputs">
     <thead>
       <tr>
@@ -86,146 +42,112 @@
     const ctx = canvas.getContext('2d');
     const center = { x: canvas.width/2, y: canvas.height/2 };
     const radii = { inner:100, outer:180 };
-    let segments = [], colors = [];
+    let segments = [];
+    let colors = [];
     let rotation=0, velocity=0, animId;
     let decelerating=false, clickPos=null;
 
-    const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
+    const defaultColors=['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
     const tbody = document.querySelector('#inputs tbody');
 
-    document.getElementById('add-btn').addEventListener('click', addEntry);
-    function addEntry() {
-      const idx = tbody.querySelectorAll('input.segment-input').length;
-      const color = defaultColors[idx % defaultColors.length];
-      const colIdx = idx % 3;
-      let tr;
-      if (colIdx === 0) {
-        tr = document.createElement('tr');
-        tbody.appendChild(tr);
-      } else {
-        tr = tbody.lastElementChild;
-      }
-      // Label cell
-      const tdLabel = document.createElement('td');
-      const inLabel = document.createElement('input');
-      inLabel.type = 'text';
-      inLabel.className = 'segment-input';
-      inLabel.value = String(idx+1);
-      tdLabel.appendChild(inLabel);
-      // Color cell
-      const tdColor = document.createElement('td');
-      const inColor = document.createElement('input');
-      inColor.type = 'color';
-      inColor.className = 'color-input';
-      inColor.value = color;
-      tdColor.appendChild(inColor);
-      tr.appendChild(tdLabel);
-      tr.appendChild(tdColor);
-      // If not full row, fill placeholders
-      if (colIdx === 0) {
-        // add two more placeholder cells
-        tr.appendChild(tdLabel.cloneNode(true));
-        tr.appendChild(tdColor.cloneNode(true));
-        tr.appendChild(tdLabel.cloneNode(true));
-        tr.appendChild(tdColor.cloneNode(true));
-      }
-    }
+    document.getElementById('add-btn').addEventListener('click', ()=>{
+      const idx = segments.length;
+      segments.push((idx+1).toString());
+      colors.push(defaultColors[idx % defaultColors.length]);
+      rebuildTable();
+    });
 
-    function parseInputs() {
-      segments = [];
-      colors = [];
-      document.querySelectorAll('input.segment-input').forEach(inp => {
-        segments.push(inp.value.trim() || '-');
-      });
-      document.querySelectorAll('input.color-input').forEach(inp => {
-        colors.push(inp.value);
-      });
-      clickPos = null;
-      decelerating = false;
-      velocity = 0;
-    }
-
-    function drawBoard() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.save(); ctx.translate(center.x, center.y); ctx.rotate(rotation);
-      const count = segments.length;
-      if (count > 0) {
-        const angle = 2 * Math.PI / count;
-        for (let i = 0; i < count; i++) {
-          ctx.beginPath(); ctx.moveTo(0,0);
-          ctx.fillStyle = colors[i];
-          ctx.arc(0,0,radii.outer, i*angle, (i+1)*angle);
-          ctx.closePath(); ctx.fill();
-        }
-        ctx.restore();
-        // labels
-        ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        for (let i = 0; i < count; i++) {
-          const a = (i + 0.5) * 2 * Math.PI / count + rotation;
-          const r = radii.outer * 0.6;
-          const x = center.x + Math.cos(a) * r;
-          const y = center.y + Math.sin(a) * r;
-          ctx.save(); ctx.translate(x, y); ctx.rotate(a);
-          ctx.fillText(segments[i], 0, 0);
-          ctx.restore();
-        }
-      } else ctx.restore();
-      if (clickPos) {
-        ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
-        ctx.moveTo(clickPos.x-10, clickPos.y);
-        ctx.lineTo(clickPos.x+10, clickPos.y);
-        ctx.moveTo(clickPos.x, clickPos.y-10);
-        ctx.lineTo(clickPos.x, clickPos.y+10);
-        ctx.stroke();
-      }
-    }
-
-    function animate() {
-      if (decelerating) {
-        velocity *= 0.95;
-        if (velocity < 0.02) {
-          decelerating = false;
-          velocity = 0;
-          if (clickPos) {
-            const mx = clickPos.x - center.x, my = clickPos.y - center.y;
-            let lbl = '-';
-            if (Math.hypot(mx,my) <= radii.outer) {
-              const count = segments.length;
-              const angle = 2 * Math.PI / count;
-              const a = ((Math.atan2(my,mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-              lbl = segments[Math.floor(a / angle)];
-            }
-            document.getElementById('result').textContent = lbl;
-            document.getElementById('start-btn').disabled = false;
+    function rebuildTable(){
+      tbody.innerHTML = '';
+      const n = segments.length;
+      const cols = 3;
+      const rows = Math.ceil(n/cols);
+      for(let r=0;r<rows;r++){
+        const tr = document.createElement('tr');
+        for(let c=0;c<cols;c++){
+          const idx = r*cols + c;
+          if(idx < n){
+            // label cell
+            const td1 = document.createElement('td');
+            const inText = document.createElement('input');
+            inText.type='text'; inText.className='segment-input'; inText.value=segments[idx];
+            td1.appendChild(inText);
+            tr.appendChild(td1);
+            // color cell
+            const td2 = document.createElement('td');
+            const inColor = document.createElement('input');
+            inColor.type='color'; inColor.className='color-input'; inColor.value=colors[idx];
+            td2.appendChild(inColor);
+            tr.appendChild(td2);
+          } else {
+            // empty cells
+            tr.appendChild(document.createElement('td'));
+            tr.appendChild(document.createElement('td'));
           }
         }
+        tbody.appendChild(tr);
       }
-      rotation += velocity;
-      drawBoard();
-      animId = requestAnimationFrame(animate);
     }
 
-    canvas.addEventListener('click', e => {
-      if (velocity === 0) return;
-      const rect = canvas.getBoundingClientRect();
-      clickPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      decelerating = true;
-    });
+    function parseInputs(){
+      segments = Array.from(document.querySelectorAll('.segment-input')).map(i=>i.value.trim()||'-');
+      colors = Array.from(document.querySelectorAll('.color-input')).map(i=>i.value);
+      clickPos=null; decelerating=false; velocity=0;
+    }
 
-    document.getElementById('update-btn').addEventListener('click', () => {
-      if (velocity !== 0) return;
-      parseInputs(); drawBoard(); document.getElementById('result').textContent = '';
-    });
-    document.getElementById('start-btn').addEventListener('click', () => {
-      parseInputs(); velocity = 0.3; decelerating = false;
-      document.getElementById('start-btn').disabled = true; animate();
-    });
+    function drawBoard(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.save(); ctx.translate(center.x,center.y); ctx.rotate(rotation);
+      const count = segments.length;
+      if(count>0){
+        const angle=2*Math.PI/count;
+        segments.forEach((seg,i)=>{
+          ctx.beginPath(); ctx.moveTo(0,0);
+          ctx.fillStyle = colors[i];
+          ctx.arc(0,0,radii.outer,i*angle,(i+1)*angle);
+          ctx.closePath(); ctx.fill();
+        });
+        ctx.restore();
+        ctx.fillStyle='#000'; ctx.font='14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        segments.forEach((seg,i)=>{
+          const angleStep=2*Math.PI/count;
+          const a=(i+0.5)*angleStep+rotation;
+          const r=radii.outer*0.6;
+          const x=center.x+Math.cos(a)*r;
+          const y=center.y+Math.sin(a)*r;
+          ctx.save(); ctx.translate(x,y); ctx.rotate(a);
+          ctx.fillText(seg,0,0); ctx.restore();
+        });
+      } else ctx.restore();
+      if(clickPos){ctx.beginPath();ctx.strokeStyle='red';ctx.lineWidth=2;
+        ctx.moveTo(clickPos.x-10,clickPos.y);ctx.lineTo(clickPos.x+10,clickPos.y);
+        ctx.moveTo(clickPos.x,clickPos.y-10);ctx.lineTo(clickPos.x,clickPos.y+10);
+        ctx.stroke();}
+    }
+
+    function animate(){
+      if(decelerating){velocity*=0.95;
+        if(velocity<0.02){decelerating=false;velocity=0;
+          if(clickPos){let lbl='-';const mx=clickPos.x-center.x,my=clickPos.y-center.y;
+            if(Math.hypot(mx,my)<=radii.outer){const count=segments.length,angle=2*Math.PI/count;
+              const a=((Math.atan2(my,mx)-rotation)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+              lbl=segments[Math.floor(a/angle)];}
+            document.getElementById('result').textContent=lbl;
+            document.getElementById('start-btn').disabled=false;}}
+      }
+      rotation+=velocity; drawBoard(); animId=requestAnimationFrame(animate);
+    }
+
+    canvas.addEventListener('click',e=>{if(velocity===0)return;
+      const rect=canvas.getBoundingClientRect();clickPos={x:e.clientX-rect.left,y:e.clientY-rect.top};decelerating=true;});
+    document.getElementById('update-btn').addEventListener('click',()=>{if(velocity!==0)return;
+      parseInputs(); rebuildTable(); drawBoard();document.getElementById('result').textContent='';});
+    document.getElementById('start-btn').addEventListener('click',()=>{parseInputs();velocity=0.3;decelerating=false;
+      document.getElementById('start-btn').disabled=true;animate();});
 
     // 初期2行追加
-    document.getElementById('add-btn').click();
-    document.getElementById('add-btn').click();
-    drawBoard(); animate();
+    addEntry();addEntry();
+    rebuildTable();drawBoard();animate();
   </script>
 </body>
 </html>
