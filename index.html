@@ -60,6 +60,7 @@
       <div>※Startを押して高速回転、円をクリックすると停止</div>
     </div>
     <div class="control-group" id="labels-group">
+      <!-- ラベル入力 10個 -->
       <div class="label-input"><label>項目1<input id="segment-1" type="text" value="A"></label></div>
       <div class="label-input"><label>項目2<input id="segment-2" type="text" value="B"></label></div>
       <div class="label-input"><label>項目3<input id="segment-3" type="text" value="C"></label></div>
@@ -72,6 +73,7 @@
       <div class="label-input"><label>項目10<input id="segment-10" type="text" value="J"></label></div>
     </div>
     <div class="control-group" id="colors-group">
+      <!-- 色入力 10個 -->
       <div class="color-input"><label>色1<input id="color-1" type="color" value="#ff8888"></label></div>
       <div class="color-input"><label>色2<input id="color-2" type="color" value="#88ff88"></label></div>
       <div class="color-input"><label>色3<input id="color-3" type="color" value="#8888ff"></label></div>
@@ -168,14 +170,10 @@
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       marker = { x, y };
-      // 判定
+      // 判定はラベルのみ表示
       const mx = x - center.x;
       const my = y - center.y;
       const d = Math.hypot(mx, my);
-      let result;
-      if (d <= radii.inner) result = '当たり';
-      else if (d <= radii.outer) result = '端っこヒット';
-      else result = 'はずれ';
       let label = '-';
       if (d <= radii.outer) {
         const angle = (2 * Math.PI) / segments.length;
@@ -183,7 +181,7 @@
         const idx = Math.floor(a / angle);
         label = segments[idx];
       }
-      document.getElementById('result').textContent = `${label} → ${result}`;
+      document.getElementById('result').textContent = label;
     });
 
     document.getElementById('update-btn').addEventListener('click', () => {
