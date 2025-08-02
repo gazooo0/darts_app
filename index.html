@@ -71,11 +71,9 @@
     let rotation = 0, velocity = 0, animId;
     let decelerating = false, clickPos = null;
 
-    // カラーパレット
     const defaultColors = ['#ff6666','#66ff66','#6666ff','#ff66ff','#66ffff','#ffff66','#ff9966','#9966ff','#66ff99','#cc66cc'];
     const inputsContainer = document.getElementById('inputs');
 
-    // 項目追加 (ラベルは数字1,2,3...)
     document.getElementById('add-btn').addEventListener('click', addEntry);
     function addEntry() {
       const index = inputsContainer.children.length;
@@ -94,7 +92,6 @@
       inputsContainer.appendChild(div);
     }
 
-    // 入力読み込み
     function parseInputs() {
       segments = [];
       colors = [];
@@ -109,7 +106,6 @@
       velocity = 0;
     }
 
-    // ボード描画
     function drawBoard() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.save();
@@ -124,11 +120,19 @@
         ctx.arc(0,0,radii.outer, i*angle, (i+1)*angle);
         ctx.closePath(); ctx.fill();
       }
-      ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // ラベルを中心に向けて回転描画
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
       for (let i = 0; i < count; i++) {
         const a = (i + 0.5) * angle;
         const r = radii.outer * 0.6;
-        ctx.fillText(segments[i], Math.cos(a) * r, Math.sin(a) * r);
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.fillText(segments[i], 0, 0);
+        ctx.restore();
       }
       ctx.restore();
       if (clickPos) {
@@ -139,7 +143,6 @@
       }
     }
 
-    // アニメーション
     function animate() {
       if (decelerating) {
         velocity *= 0.95;
@@ -165,7 +168,6 @@
       animId = requestAnimationFrame(animate);
     }
 
-    // クリックで減速開始
     canvas.addEventListener('click', e => {
       if (velocity === 0) return;
       const rect = canvas.getBoundingClientRect();
@@ -173,13 +175,10 @@
       decelerating = true;
     });
 
-    // 更新ボタン
     document.getElementById('update-btn').addEventListener('click', () => {
       if (velocity !== 0) return;
       parseInputs(); drawBoard(); document.getElementById('result').textContent = '';
     });
-
-    // Startボタン
     document.getElementById('start-btn').addEventListener('click', () => {
       parseInputs(); velocity = 0.3; decelerating = false;
       document.getElementById('start-btn').disabled = true; animate();
