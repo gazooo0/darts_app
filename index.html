@@ -123,8 +123,7 @@
       const count = segments.length;
       const angle = (2 * Math.PI) / count;
       for (let i = 0; i < count; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
+        ctx.beginPath(); ctx.moveTo(0, 0);
         ctx.fillStyle = colors[i];
         ctx.arc(0, 0, radii.outer, i * angle, (i + 1) * angle);
         ctx.closePath(); ctx.fill();
@@ -138,9 +137,14 @@
       }
       ctx.restore();
       if (clickPos) {
-        ctx.beginPath(); ctx.fillStyle = '#000';
-        ctx.arc(clickPos.x, clickPos.y, 3, 0, 2 * Math.PI);
-        ctx.fill();
+        // 十字マーカー描画
+        ctx.beginPath();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+        ctx.moveTo(clickPos.x - 10, clickPos.y);
+        ctx.lineTo(clickPos.x + 10, clickPos.y);
+        ctx.moveTo(clickPos.x, clickPos.y - 10);
+        ctx.lineTo(clickPos.x, clickPos.y + 10);
+        ctx.stroke();
       }
     }
 
@@ -150,18 +154,21 @@
         if (velocity < 0.02) {
           decelerating = false;
           velocity = 0;
-          const { x, y } = clickPos;
-          const mx = x - center.x, my = y - center.y;
-          const d = Math.hypot(mx, my);
-          let label = '-';
-          if (d <= radii.outer) {
-            const count = segments.length;
-            const angle = (2 * Math.PI) / count;
-            const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-            label = segments[Math.floor(a / angle)];
+          // ラベル判定
+          if (clickPos) {
+            const mx = clickPos.x - center.x;
+            const my = clickPos.y - center.y;
+            const d = Math.hypot(mx, my);
+            let label = '-';
+            if (d <= radii.outer) {
+              const count = segments.length;
+              const angle = (2 * Math.PI) / count;
+              const a = ((Math.atan2(my, mx) - rotation) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+              label = segments[Math.floor(a / angle)];
+            }
+            document.getElementById('result').textContent = label;
+            document.getElementById('start-btn').disabled = false;
           }
-          document.getElementById('result').textContent = label;
-          document.getElementById('start-btn').disabled = false;
         }
       }
       rotation += velocity;
