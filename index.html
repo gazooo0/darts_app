@@ -120,21 +120,23 @@
         ctx.arc(0,0,radii.outer, i*angle, (i+1)*angle);
         ctx.closePath(); ctx.fill();
       }
-      // ラベルを中心に向けて回転描画
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.restore();
+
+      // ラベルを90°回転で表示 (常に同じ向き)
       ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       for (let i = 0; i < count; i++) {
-        const a = (i + 0.5) * angle;
+        const a = (i + 0.5) * angle + rotation;
         const r = radii.outer * 0.6;
-        const x = Math.cos(a) * r;
-        const y = Math.sin(a) * r;
+        const x = center.x + Math.cos(a) * r;
+        const y = center.y + Math.sin(a) * r;
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(a + Math.PI / 2);
+        ctx.rotate(Math.PI / 2);
         ctx.fillText(segments[i], 0, 0);
         ctx.restore();
       }
-      ctx.restore();
+
       if (clickPos) {
         ctx.beginPath(); ctx.strokeStyle = 'red'; ctx.lineWidth = 2;
         ctx.moveTo(clickPos.x-10, clickPos.y); ctx.lineTo(clickPos.x+10, clickPos.y);
@@ -185,8 +187,7 @@
     });
 
     // 初期2項目追加
-    addEntry(); addEntry();
-    drawBoard(); animate();
+    addEntry(); addEntry(); drawBoard(); animate();
   </script>
 </body>
 </html>
