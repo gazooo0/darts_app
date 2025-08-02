@@ -112,38 +112,54 @@
 
     function drawBoard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save(); ctx.translate(center.x, center.y); ctx.rotate(rotation);
-      const count = segments.length; const angle = 2 * Math.PI / count;
-      // セグメント
+      ctx.save();
+      ctx.translate(center.x, center.y);
+      ctx.rotate(rotation);
+
+      const count = segments.length;
+      const angle = 2 * Math.PI / count;
+
+      // セグメントを中心まで塗りつぶし
       for (let i = 0; i < count; i++) {
-        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
         ctx.fillStyle = colors[i];
         ctx.arc(0, 0, radii.outer, i * angle, (i + 1) * angle);
-        ctx.closePath(); ctx.fill();
+        ctx.closePath();
+        ctx.fill();
       }
-      // 内側：中央をセグメント1の色で塗りつぶし
-      ctx.beginPath(); ctx.fillStyle = colors[0] || '#fff'; ctx.arc(0, 0, radii.inner, 0, 2 * Math.PI); ctx.fill();
-      // ラベル
-      ctx.fillStyle = '#000'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+      // ラベル描画
+      ctx.fillStyle = '#000';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       for (let i = 0; i < count; i++) {
         const a = (i + 0.5) * angle;
-        const r = (radii.inner + radii.outer) / 2;
+        const r = radii.outer * 0.6;
         ctx.fillText(segments[i], Math.cos(a) * r, Math.sin(a) * r);
       }
+
       ctx.restore();
     }
 
-    function animate() { rotation += 0.01; drawBoard(); animId = requestAnimationFrame(animate); }
+    function animate() {
+      rotation += 0.01;
+      drawBoard();
+      animId = requestAnimationFrame(animate);
+    }
 
     canvas.addEventListener('click', e => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left - center.x;
       const y = e.clientY - rect.top - center.y;
       const d = Math.hypot(x, y);
+
       let result;
       if (d <= radii.inner) result = '当たり';
       else if (d <= radii.outer) result = '端っこヒット';
       else result = 'はずれ';
+
       let label = '-';
       if (d <= radii.outer) {
         const a = (Math.atan2(y, x) - rotation + 2 * Math.PI) % (2 * Math.PI);
@@ -153,11 +169,17 @@
     });
 
     document.getElementById('update-btn').addEventListener('click', () => {
-      cancelAnimationFrame(animId); rotation = 0; parseInputs(); drawBoard(); animate();
+      cancelAnimationFrame(animId);
+      rotation = 0;
+      parseInputs();
+      drawBoard();
+      animate();
     });
 
     // 初期化
-    parseInputs(); drawBoard(); animate();
+    parseInputs();
+    drawBoard();
+    animate();
   </script>
 </body>
 </html>
